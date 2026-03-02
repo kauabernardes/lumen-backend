@@ -1,0 +1,36 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ParticipantSession {
+  id        String  @id @default(uuid()) @db.Uuid
+  sessionId String  @db.Uuid
+  userId    String  @db.Uuid
+  session   Session @relation(fields: [sessionId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
+}
+
+model Session {
+  id           String               @id @default(uuid()) @db.Uuid
+  hostId       String               @db.Uuid
+  createdAt    DateTime             @default(now()) @db.Timestamptz(6)
+  finishedAt   DateTime?            @db.Timestamptz(6)
+  participants ParticipantSession[]
+  host         User                 @relation(fields: [hostId], references: [id])
+}
+
+model User {
+  email               String               @unique @db.VarChar(255)
+  username            String               @unique @db.VarChar(50)
+  name                String               @db.VarChar(100)
+  id                  String               @id @default(uuid()) @db.Uuid
+  password            String               @db.VarChar(255)
+  participantSessions ParticipantSession[]
+  sessions            Session[]
+}
