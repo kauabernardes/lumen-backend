@@ -22,14 +22,13 @@ export class SessionGateway
 
   private activeSessions = new Map<string, any>();
 
-  // NOVO: Mapa rápido para saber em qual sala um socket está quando ele desconecta
   private socketToUserMap = new Map<
     string,
     { userId: string; sessionId: string }
   >();
 
   handleConnection(client: Socket) {
-    console.log(`[Socket] Novo cliente conectado: ${client.id}`);
+    console.log(`Novo cliente conectado: ${client.id}`);
   }
 
   @SubscribeMessage('join_session')
@@ -58,12 +57,11 @@ export class SessionGateway
         sessionId = newSession.id;
       }
 
-      // NOVO: Adicionado a estrutura do Pomodoro e a lista de participantes na memória
       this.activeSessions.set(sessionId, {
         hostId: payload.userId,
         participants: new Map(),
         pomodoro: {
-          timeLeft: 25 * 60, // 25 minutos em segundos
+          timeLeft: 25 * 60,
           status: 'paused',
           intervalId: null,
         },
@@ -72,12 +70,10 @@ export class SessionGateway
 
     client.join(sessionId);
 
-    // NOVO: Registra o usuário no mapa auxiliar e na lista de participantes da sessão
     this.socketToUserMap.set(client.id, { userId: payload.userId, sessionId });
     const sessionState = this.activeSessions.get(sessionId);
     sessionState.participants.set(payload.userId, { socketId: client.id });
 
-    // NOVO: Avisa os outros alunos da sala que alguém entrou
     this.server.to(sessionId).emit('user_joined', { userId: payload.userId });
 
     console.log(
@@ -125,7 +121,7 @@ export class SessionGateway
       if (pomodoro.timeLeft <= 0) {
         clearInterval(pomodoro.intervalId);
         pomodoro.status = 'break';
-        pomodoro.timeLeft = 5 * 60; // 5 minutos de pausa
+        pomodoro.timeLeft = 5 * 60;
         this.server.to(payload.sessionId).emit('timer_ended', {
           nextPhase: 'break',
           timeLeft: pomodoro.timeLeft,
@@ -147,16 +143,13 @@ export class SessionGateway
         `[Socket] Usuário ${info.userId} desconectou da sala ${info.sessionId}`,
       );
 
-      // Avisa a sala que o usuário saiu
       this.server.to(info.sessionId).emit('user_left', { userId: info.userId });
 
-      // Remove do mapa rápido para não vazar memória
       this.socketToUserMap.delete(client.id);
 
-      // (Opcional) Aqui depois adicionaremos o setTimeout de 5 minutos para remover de vez
     } else {
       console.log(
-        `[Socket] Cliente desconectado (sem sala vinculada): ${client.id}`,
+        `Cliente desconectado (sem sala vinculada): ${client.id}`,
       );
     }
   }
