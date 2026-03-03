@@ -28,7 +28,7 @@ export class SessionGateway
   >();
 
   handleConnection(client: Socket) {
-    console.log(`[Socket] Novo cliente conectado: ${client.id}`);
+    console.log(`Novo cliente conectado: ${client.id}`);
   }
 
   @SubscribeMessage('join_session')
@@ -147,9 +147,7 @@ export class SessionGateway
 
       this.socketToUserMap.delete(client.id);
     } else {
-      console.log(
-        `[Socket] Cliente desconectado (sem sala vinculada): ${client.id}`,
-      );
+      console.log(`Cliente desconectado (sem sala vinculada): ${client.id}`);
     }
   }
 }
