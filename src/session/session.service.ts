@@ -1,5 +1,4 @@
-import { SessionWhereUniqueInput } from './../../generated/prisma/models/Session';
-import { Injectable } from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { Prisma, Session } from 'generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -8,17 +7,38 @@ export class SessionService {
   constructor(private prisma: PrismaService) {}
 
   async online(userId: string): Promise<string | null> {
-    const response: Session | null = await this.prisma.session.findFirst({
-      where: {
-        hostId: userId,
-        finishedAt: null,
-      },
-    });
-    return response?.id || null;
+    try {
+      const response = await this.prisma.session.findFirst({
+        where: {
+          hostId: userId,
+          finishedAt: null,
+        },
+      });
+      return response?.id || null;
+    } catch (error) {
+      console.error('Erro ao buscar sessão online:', error);
+      throw new InternalServerErrorException('Erro ao buscar sessão.');
+    }
   }
 
   async create(data: Prisma.SessionCreateInput): Promise<Session> {
-    const response: Session = await this.prisma.session.create({ data });
-    return response;
+    try {
+      return await this.prisma.session.create({ data });
+    } catch (error) {
+      console.error('Erro ao criar sessão:', error);
+      throw new InternalServerErrorException(`Erro ao criar sessão: ${error}`);
+    }
+  }
+
+  async revoke(where: Prisma.SessionWhereUniqueInput): Promise<Session> {
+    try {
+      return await this.prisma.session.update({
+        where: where,
+        data: { finishedAt: new Date() },
+      });
+    } catch (error) {
+      console.error('Erro ao revogar sessão:', error);
+      throw new InternalServerErrorException(`Erro ao criar sessão: ${error}`);
+    }
   }
 }
