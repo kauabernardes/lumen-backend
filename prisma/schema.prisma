@@ -25,6 +25,17 @@ model Session {
   host         User                 @relation(fields: [hostId], references: [id])
 }
 
+model Post {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(255)
+  content     String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @db.Timestamptz()
+  likes       Int       @default(0)
+  isPublished Boolean   @default(true)
+  users User[]
+}
+
 model User {
   email               String               @unique @db.VarChar(255)
   username            String               @unique @db.VarChar(50)
@@ -33,4 +44,7 @@ model User {
   password            String               @db.VarChar(255)
   participantSessions ParticipantSession[]
   sessions            Session[]
+  posts Post[]
 }
+
+
