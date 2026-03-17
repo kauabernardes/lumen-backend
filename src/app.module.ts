@@ -7,6 +7,7 @@ import { SessionService } from './session/session.service';
 import { SessionModule } from './session/session.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module'
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { AuthModule } from './auth/auth.module'
     }),
     PrismaModule,
     SessionModule, 
-    AuthModule
+    AuthModule, UserModule
   ],
   controllers: [AppController],
   providers: [AppService],

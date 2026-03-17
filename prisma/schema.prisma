@@ -14,6 +14,7 @@ model ParticipantSession {
   userId    String  @db.Uuid
   session   Session @relation(fields: [sessionId], references: [id])
   user      User    @relation(fields: [userId], references: [id])
+  time      BigInt     @db.BigInt
 }
 
 model Session {
