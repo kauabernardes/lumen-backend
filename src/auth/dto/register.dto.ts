@@ -10,10 +10,6 @@ export class RegisterDto {
   username: string
 
   @IsString()
-  @MinLength(3)
-  name: string
-
-  @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).*$/)
   password: string
