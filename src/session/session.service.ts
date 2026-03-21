@@ -126,7 +126,7 @@ export class SessionService {
     sessionState?.participants.set(userId, {
       socketId: socketId,
       participantId: sessionParticipantId,
-      userId: user.id,
+      userId: userId,
       username: user.username,
       joinedAt: new Date(),
     });
