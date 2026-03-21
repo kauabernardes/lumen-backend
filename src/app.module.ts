@@ -9,6 +9,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
+import { RewardModule } from './reward/reward.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CommunityModule } from './community/community.module';
     AuthModule,
     UserModule,
     CommunityModule,
+    RewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -43,6 +43,7 @@ model User {
   sessions            Session[]
   members             Member[]
   communities         Community[]
+  earns               Earn[]
 }
 
 model Member {
@@ -59,15 +60,35 @@ model Member {
 }
 
 model Community {
-  id          String @id @default(uuid()) @db.Uuid
-  name        String @db.VarChar(50)
-  description String @db.VarChar(255)
-  authorId    String @db.Uuid
-  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
-
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(50)
+  description String   @db.VarChar(255)
+  authorId    String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
 
   author  User     @relation(fields: [authorId], references: [id])
   members Member[]
 
+  @@unique([name])
   @@index([authorId])
+}
+
+model Earn {
+  id       String @id @default(uuid()) @db.Uuid
+  reward   Reward @relation(fields: [rewardId], references: [id])
+  rewardId String @db.Uuid
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String @db.Uuid
+
+  @@unique([rewardId, userId])
+  @@index([rewardId])
+  @@index([userId])
+}
+
+model Reward {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @db.VarChar(50)
+  description String @db.VarChar(255)
+  value       BigInt @db.BigInt
+  earns       Earn[]
 }

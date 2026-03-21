@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Create } from './dto/create.dto';
 
@@ -8,10 +8,19 @@ export class CommunityService {
 
   async create(payload: Create, userId: string) {
     try {
+      const exist = await this.prisma.community.findFirst({
+        where: {
+          name: payload.name,
+        },
+      });
+      if (exist) {
+        throw new ConflictException('Comunidade com esse nome já existe');
+      }
+
       const community = await this.prisma.community.create({
         data: {
           name: payload.name,
-          description: payload.description,
+          description: payload.description || '',
           authorId: userId,
         },
       });
@@ -20,7 +29,6 @@ export class CommunityService {
         community: community,
       };
     } catch (error) {
-      console.error('Erro ao criar comunidade:', error);
       throw error;
     }
   }
