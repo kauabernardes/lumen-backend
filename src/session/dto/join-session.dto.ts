@@ -1,9 +1,10 @@
-import { IsUUID } from 'class-validator';
+import { IsString, IsUUID, IsOptional } from 'class-validator';
 
 export class JoinSessionDto {
-  @IsUUID()
-  userId: string;
+  @IsString()
+  token: string;
 
+  @IsOptional()
   @IsUUID()
   sessionId?: string;
 }
