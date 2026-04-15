@@ -10,9 +10,11 @@ import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
 import { RewardModule } from './reward/reward.module';
+import { PostModule } from './post/post.module';
 
 @Module({
   imports: [
+    PostModule,
     ConfigModule.forRoot({
       isGlobal: true,
     }),
