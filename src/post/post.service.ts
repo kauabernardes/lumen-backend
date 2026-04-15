@@ -22,8 +22,8 @@ export class PostService {
     const member = await this.prisma.member.findUnique({
       where: {
         userId_communityId: {
-          userId,
-          communityId: data.communityId,
+          'userId': userId,
+          'communityId': data.communityId,
         },
       },
     });
@@ -35,7 +35,7 @@ export class PostService {
     return this.prisma.post.create({
       data: {
         content: data.content,
-        userId,
+         'userId': userId,
         communityId: data.communityId,
       },
     });

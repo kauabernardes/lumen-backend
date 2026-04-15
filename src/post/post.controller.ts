@@ -17,12 +17,14 @@ export class PostController {
   @Post()
   @UseGuards(AuthGuard)
   createPost(@Body() body: CreatePostDto, @Req() req) {
-    return this.postService.createPost(body, req.user.id);
+    console.log(req.user.sub);
+    return this.postService.createPost(body, req.user.sub);
   }
 
   @Post(':id/like')
   @UseGuards(AuthGuard)
   toggleLike(@Param('id') postId: string, @Req() req) {
-    return this.postService.toggleLike(postId, req.user.id);
+    console.log(req.user.sub);
+    return this.postService.toggleLike(postId, req.user.sub);
   }
 }

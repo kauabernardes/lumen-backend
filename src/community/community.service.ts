@@ -66,11 +66,9 @@ export class CommunityService {
     };
   }
 
-  async getRecommended(userId: string, pagination: PaginationDto) {
-    const { page: pageString, limit: limitString } = pagination;
-    const page = Number(pageString);
-    const limit = Number(limitString);
-
+ async getRecommended(userId: string, pagination: PaginationDto) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
 
     try {
@@ -82,21 +80,33 @@ export class CommunityService {
           include: {
             author: { select: { username: true } },
             _count: { select: { members: true } },
+            members: {
+              where: { userId: userId },
+              select: { id: true }, 
+            },
           },
         }),
-        this.prisma.community.count({
-          where: {
-            members: { none: { userId: userId } },
-          },
-        }),
+        
+        this.prisma.community.count(), 
       ]);
 
+      
+      const formattedCommunities = communities.map((community) => {
+       
+        const { members, ...rest } = community; 
+        
+        return {
+          ...rest,
+          isMember: members.length > 0, 
+        };
+      });
+
       return {
-        data: communities,
+        data: formattedCommunities,
         meta: {
           total,
           page,
-          lastPage: Math.ceil(total / limit),
+          lastPage: Math.ceil(total / limit) || 1,
         },
       };
     } catch (error) {
