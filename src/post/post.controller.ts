@@ -1,28 +1,40 @@
 import {
-  Body,
   Controller,
-  Param,
   Post,
-  Req,
+  Body,
   UseGuards,
+  Req,
+  Get,
+  Param,
+  Query,
 } from '@nestjs/common';
-import { PostService } from './post.service';
-import { AuthGuard } from '../auth/auth.guard';
+import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('posts')
-export class PostController {
-  constructor(private readonly postService: PostService) {}
+export class PostsController {
+  constructor(private readonly postsService: PostsService) {}
 
   @Post()
-  @UseGuards(AuthGuard)
-  createPost(@Body() body: CreatePostDto, @Req() req) {
-    return this.postService.createPost(body, req.user.id);
+  @UseGuards(AuthGuard('jwt'))
+  create(@Body() dto: CreatePostDto, @Req() req: any) {
+    return this.postsService.create(dto, req.user.id);
   }
 
-  @Post(':id/like')
-  @UseGuards(AuthGuard)
-  toggleLike(@Param('id') postId: string, @Req() req) {
-    return this.postService.toggleLike(postId, req.user.id);
+  @Get(':id')
+  @UseGuards(AuthGuard('jwt'))
+  findOne(@Param('id') id: string, @Req() req: any) {
+    return this.postsService.findOne(id, req.user.id);
+  }
+
+  @Get('search')
+  @UseGuards(AuthGuard('jwt'))
+  search(
+    @Query('content') content: string,
+    @Query('date') date: string,
+    @Req() req: any,
+  ) {
+    return this.postsService.search(content, date, req.user.id);
   }
 }
