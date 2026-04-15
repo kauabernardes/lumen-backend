@@ -34,4 +34,19 @@ export class CommunityController {
   async getRecommended(@Request() req, @Query() pagination: PaginationDto) {
     return this.communityService.getRecommended(req.user.sub, pagination);
   }
+
+  @UseGuards(AuthGuard)
+  @Get(':id')
+  async getById(@Param('id') id: string) {
+    return this.communityService.getById(id);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get(':id/posts')
+  async getPosts(
+    @Param('id') id: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.communityService.getPosts(id, pagination);
+  }
 }

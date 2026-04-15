@@ -13,5 +13,4 @@ export class RegisterDto {
   @MinLength(8)
   @Matches(/^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).*$/)
   password: string
-
 }

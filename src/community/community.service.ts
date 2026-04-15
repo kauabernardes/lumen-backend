@@ -103,4 +103,59 @@ export class CommunityService {
       throw error;
     }
   }
+
+  async getById(communityId: string) {
+    const community = await this.prisma.community.findUnique({
+      where: { id: communityId },
+      include: {
+        author: { select: { username: true } },
+        _count: { select: { members: true } },
+      },
+    });
+
+    if (!community) {
+      throw new NotFoundException('Comunidade não encontrada');
+    }
+
+    return community;
+  }
+
+  async getPosts(communityId: string, pagination: PaginationDto) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const communityExists = await this.prisma.community.findUnique({
+      where: { id: communityId },
+    });
+
+    if (!communityExists) {
+      throw new NotFoundException('Comunidade não encontrada');
+    }
+
+    try {
+      const [posts, total] = await this.prisma.$transaction([
+        this.prisma.post.findMany({
+          where: { communityId: communityId },
+          skip: skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.post.count({
+          where: { communityId: communityId },
+        }),
+      ]);
+
+      return {
+        data: posts,
+        meta: {
+          total,
+          page,
+          lastPage: Math.ceil(total / limit) || 1,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 }
