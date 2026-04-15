@@ -44,6 +44,7 @@ model User {
   members             Member[]
   communities         Community[]
   earns               Earn[]
+  posts Post[]
 }
 
 model Member {
@@ -68,6 +69,8 @@ model Community {
 
   author  User     @relation(fields: [authorId], references: [id])
   members Member[]
+
+  posts Post[]
 
   @@unique([name])
   @@index([authorId])
@@ -107,6 +110,9 @@ model Post {
   userId      String   @db.Uuid
   communityId String   @db.Uuid
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([communityId])
