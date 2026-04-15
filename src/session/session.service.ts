@@ -1,12 +1,10 @@
-import { join } from './../../generated/prisma/internal/prismaNamespace';
+
 import { SessionParticipant } from './types/session-participant';
 import {
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, Session } from 'generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { SessionState } from './interface/session-state';
 import { Server } from 'socket.io';
@@ -102,7 +100,7 @@ export class SessionService {
 
     const sessionState = this.activeSessions.get(sessionId);
 
-    // Se a sessão estava marcada para destruição, cancela essa ação
+    
     if (sessionState && sessionState.pendingDestructionTimeout) {
       clearTimeout(sessionState.pendingDestructionTimeout);
       sessionState.pendingDestructionTimeout = undefined;
@@ -176,23 +174,16 @@ export class SessionService {
       sessionState.pendingDestructionTimeout = setTimeout(async () => {
         const currentSession = this.activeSessions.get(sessionId);
         if (currentSession && currentSession.participants.size === 0) {
-          // verifica se ainda está vazia antes de destruir
-
           await this.saveFinishedSession(sessionId);
-
           if (currentSession.pomodoro.intervalId) {
-            // Limpa o timer se ainda existir
             clearInterval(currentSession.pomodoro.intervalId);
           }
-
-          this.activeSessions.delete(sessionId); // Remove a sessão da memória
+          this.activeSessions.delete(sessionId);
           console.log(`[Socket] Sessão ${sessionId} permanentemente removida.`);
         }
       }, POMODORO.TEMPO_INATIVIDADE);
     }
   }
-
-  // Lógica do pomodoro
 
   toggleTimer(sessionId: string, userId: string) {
     const session: SessionState = this.getSessionAndValidateHost(
