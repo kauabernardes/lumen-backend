@@ -117,3 +117,4 @@ model Post {
   @@index([userId])
   @@index([communityId])
 }
+

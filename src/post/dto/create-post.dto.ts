@@ -1,10 +1,11 @@
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
   @IsNotEmpty()
   content: string;
 
-  @IsUUID()
+  @IsString()
+  @IsNotEmpty()
   communityId: string;
 }
