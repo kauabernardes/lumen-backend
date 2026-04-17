@@ -22,23 +22,30 @@ export class PostService {
     const member = await this.prisma.member.findUnique({
       where: {
         userId_communityId: {
-          'userId': userId,
-          'communityId': data.communityId,
+          userId: userId,
+          communityId: data.communityId,
         },
       },
+      include: { user: true },
     });
 
     if (!member) {
       throw new ForbiddenException('Usuário não pertence à comunidade');
     }
 
-    return this.prisma.post.create({
+    const post = await this.prisma.post.create({
       data: {
         content: data.content,
-         'userId': userId,
+        userId: userId,
         communityId: data.communityId,
       },
     });
+
+    return {
+      ...post,
+      user: { username: member.user.username },
+      community: { name: community.name },
+    };
   }
 
   async toggleLike(postId: string, userId: string) {

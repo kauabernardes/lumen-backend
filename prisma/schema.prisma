@@ -44,7 +44,7 @@ model User {
   members             Member[]
   communities         Community[]
   earns               Earn[]
-  posts Post[]
+  posts               Post[]
 }
 
 model Member {
@@ -100,6 +100,7 @@ model Like {
   id     String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   postId String @db.Uuid
+  post   Post   @relation(fields: [postId], references: [id])
 
   @@unique([userId, postId])
 }
@@ -111,8 +112,14 @@ model Post {
   communityId String   @db.Uuid
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  likes Like[]
+
+  parentId String? @db.Uuid
+  parent   Post?   @relation("PostToComments", fields: [parentId], references: [id], onDelete: Cascade)
+  comments Post[]  @relation("PostToComments")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([communityId])

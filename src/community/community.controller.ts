@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -46,7 +47,8 @@ export class CommunityController {
   async getPosts(
     @Param('id') id: string,
     @Query() pagination: PaginationDto,
+    @Req() req,
   ) {
-    return this.communityService.getPosts(id, pagination);
+    return this.communityService.getPosts(id, pagination, req.user.sub);
   }
 }

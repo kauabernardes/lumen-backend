@@ -66,7 +66,7 @@ export class CommunityService {
     };
   }
 
- async getRecommended(userId: string, pagination: PaginationDto) {
+  async getRecommended(userId: string, pagination: PaginationDto) {
     const page = Number(pagination.page) || 1;
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
@@ -82,22 +82,20 @@ export class CommunityService {
             _count: { select: { members: true } },
             members: {
               where: { userId: userId },
-              select: { id: true }, 
+              select: { id: true },
             },
           },
         }),
-        
-        this.prisma.community.count(), 
+
+        this.prisma.community.count(),
       ]);
 
-      
       const formattedCommunities = communities.map((community) => {
-       
-        const { members, ...rest } = community; 
-        
+        const { members, ...rest } = community;
+
         return {
           ...rest,
-          isMember: members.length > 0, 
+          isMember: members.length > 0,
         };
       });
 
@@ -130,7 +128,11 @@ export class CommunityService {
     return community;
   }
 
-  async getPosts(communityId: string, pagination: PaginationDto) {
+  async getPosts(
+    communityId: string,
+    pagination: PaginationDto,
+    userId?: string,
+  ) {
     const page = Number(pagination.page) || 1;
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
@@ -150,14 +152,31 @@ export class CommunityService {
           skip: skip,
           take: limit,
           orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { username: true } },
+            community: { select: { name: true } },
+            _count: { select: { likes: true } },
+            likes: userId
+              ? {
+                  where: { userId: userId },
+                  select: { userId: true },
+                }
+              : false,
+          },
         }),
         this.prisma.post.count({
           where: { communityId: communityId },
         }),
       ]);
 
+      const postsWithLikedStatus = posts.map((post) => ({
+        ...post,
+        isLiked: post.likes?.length > 0,
+        likes: undefined,
+      }));
+
       return {
-        data: posts,
+        data: postsWithLikedStatus,
         meta: {
           total,
           page,
