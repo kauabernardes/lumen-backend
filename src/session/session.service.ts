@@ -1,17 +1,19 @@
-
-import { SessionParticipant } from './types/session-participant';
 import {
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Session } from 'src/schema/session.entity';
+import { ParticipantSession } from 'src/schema/participant-session.entity';
 import { SessionState } from './interface/session-state';
 import { Server } from 'socket.io';
 import { POMODORO } from './session.constants';
-import { PomodoroState } from './interface/pomodoro-state';
 import { UserService } from 'src/user/user.service';
 import { v7 } from 'uuid';
+import { SessionParticipant } from './types/session-participant';
+import { PomodoroState } from './interface/pomodoro-state';
 
 @Injectable()
 export class SessionService {
@@ -22,7 +24,10 @@ export class SessionService {
   private wsServer: Server;
 
   constructor(
-    private prisma: PrismaService,
+    @InjectRepository(Session)
+    private readonly sessionRepository: Repository<Session>,
+    @InjectRepository(ParticipantSession)
+    private readonly participantSessionRepository: Repository<ParticipantSession>,
     private readonly userService: UserService,
   ) {}
 
@@ -44,11 +49,8 @@ export class SessionService {
     if (!session) return;
 
     try {
-      await this.prisma.session.update({
-        where: { id: sessionId },
-        data: {
-          finishedAt: new Date(),
-        },
+      await this.sessionRepository.update(sessionId, {
+        finishedAt: new Date(),
       });
     } catch (error) {
       console.error('Erro ao salvar sessão finalizada:', error);
@@ -78,13 +80,12 @@ export class SessionService {
       });
 
       try {
-        await this.prisma.session.create({
-          data: {
-            id: sessionId,
-            host: { connect: { id: userId } },
-            createdAt: new Date(),
-          },
+        const newSession = this.sessionRepository.create({
+          id: sessionId,
+          host: { id: userId },
+          createdAt: new Date(),
         });
+        await this.sessionRepository.save(newSession);
       } catch (error) {
         console.error('Erro ao salvar sessão finalizada:', error);
       }
@@ -100,7 +101,6 @@ export class SessionService {
 
     const sessionState = this.activeSessions.get(sessionId);
 
-    
     if (sessionState && sessionState.pendingDestructionTimeout) {
       clearTimeout(sessionState.pendingDestructionTimeout);
       sessionState.pendingDestructionTimeout = undefined;
@@ -109,14 +109,13 @@ export class SessionService {
     const sessionParticipantId = v7();
 
     try {
-      await this.prisma.participantSession.create({
-        data: {
-          sessionId: sessionId,
-          userId: userId,
-          time: 0,
-          id: sessionParticipantId,
-        },
+      const newParticipant = this.participantSessionRepository.create({
+        sessionId: sessionId,
+        userId: userId,
+        time: 0,
+        id: sessionParticipantId,
       });
+      await this.participantSessionRepository.save(newParticipant);
     } catch (error) {
       console.error('Erro ao salvar participante da sessão:', error);
     }
@@ -131,6 +130,9 @@ export class SessionService {
     this.wsServer
       .to(sessionId)
       .emit('user_joined', { userId, username: user.username });
+
+    // Notifica todos sobre a nova lista de participantes
+    this.broadcastParticipants(sessionId);
 
     console.log(
       `[Socket] Usuário ${userId} ${user.username} ingressou na sala ${sessionId}`,
@@ -155,10 +157,12 @@ export class SessionService {
       );
 
       try {
-        await this.prisma.participantSession.update({
-          where: { id: updateUser.participantId },
-          data: { time: timeInSession },
-        });
+        await this.participantSessionRepository.update(
+          updateUser.participantId,
+          {
+            time: timeInSession,
+          },
+        );
       } catch (error) {
         console.error(
           'Erro ao atualizar tempo do participante da sessão:',
@@ -169,6 +173,9 @@ export class SessionService {
 
     sessionState.participants.delete(userId);
     this.wsServer.to(sessionId).emit('user_left', { userId });
+
+    // Notifica todos sobre a nova lista de participantes
+    this.broadcastParticipants(sessionId);
 
     if (sessionState.participants.size === 0) {
       sessionState.pendingDestructionTimeout = setTimeout(async () => {
@@ -186,10 +193,7 @@ export class SessionService {
   }
 
   toggleTimer(sessionId: string, userId: string) {
-    const session: SessionState = this.getSessionAndValidateHost(
-      sessionId,
-      userId,
-    );
+    const session = this.getSessionAndValidateHost(sessionId, userId);
     const pomodoro = session.pomodoro;
 
     if (pomodoro.status === 'running') {
@@ -293,5 +297,37 @@ export class SessionService {
       cycle: pomodoro.cycle,
       status: pomodoro.status,
     });
+  }
+
+  /**
+   * Retorna a lista de participantes de uma sessão.
+   */
+  async getParticipants(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+
+    return Array.from(sessionState.participants.values()).map((p) => ({
+      userId: p.userId,
+      username: p.username,
+    }));
+  }
+
+  /**
+   * Envia a lista de participantes atualizada para todos na sala.
+   */
+  private broadcastParticipants(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    const participants = Array.from(sessionState.participants.values()).map(
+      (p) => ({
+        userId: p.userId,
+        username: p.username,
+      }),
+    );
+
+    this.wsServer.to(sessionId).emit('participants_updated', participants);
   }
 }

@@ -3,7 +3,9 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from 'src/schema/user.entity';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 
@@ -11,7 +13,10 @@ import * as jwt from 'jsonwebtoken';
 export class AuthService {
   private attempts = new Map<string, number>();
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+  ) {}
 
   async register(data: any) {
     const { email, username, password } = data || {};
@@ -22,21 +27,17 @@ export class AuthService {
       );
     }
 
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { username }],
-      },
+    const existingUser = await this.userRepository.findOne({
+      where: [{ email }, { username }],
     });
 
     const hash = await bcrypt.hash(password, 12);
 
     if (!existingUser) {
-      await this.prisma.user.create({
-        data: {
-          email,
-          username,
-          password: hash,
-        },
+      await this.userRepository.save({
+        email,
+        username,
+        password: hash,
       });
     } else {
       throw new BadRequestException(
@@ -56,10 +57,8 @@ export class AuthService {
       throw new UnauthorizedException('Muitas tentativas. Tente novamente.');
     }
 
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { username: identifier }],
-      },
+    const user = await this.userRepository.findOne({
+      where: [{ email: identifier }, { username: identifier }],
     });
 
     const fakeHash =
@@ -97,8 +96,8 @@ export class AuthService {
 
     const token = jwt.sign(
       {
-        sub: user.id,
-        username: user.username,
+        sub: user!.id,
+        username: user!.username,
       },
       'segredo',
       { expiresIn: '1h' },

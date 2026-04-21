@@ -3,15 +3,30 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
+import { Post } from 'src/schema/post.entity';
+import { Community } from 'src/schema/community.entity';
+import { Member } from 'src/schema/member.entity';
+import { Like } from 'src/schema/like.entity';
 
 @Injectable()
 export class PostService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+    @InjectRepository(Community)
+    private readonly communityRepository: Repository<Community>,
+    @InjectRepository(Member)
+    private readonly memberRepository: Repository<Member>,
+    @InjectRepository(Like)
+    private readonly likeRepository: Repository<Like>,
+    private readonly dataSource: DataSource,
+  ) {}
 
   async createPost(data: CreatePostDto, userId: string) {
-    const community = await this.prisma.community.findUnique({
+    const community = await this.communityRepository.findOne({
       where: { id: data.communityId },
     });
 
@@ -19,27 +34,24 @@ export class PostService {
       throw new NotFoundException('Comunidade não encontrada');
     }
 
-    const member = await this.prisma.member.findUnique({
+    const member = await this.memberRepository.findOne({
       where: {
-        userId_communityId: {
-          userId: userId,
-          communityId: data.communityId,
-        },
+        userId: userId,
+        communityId: data.communityId,
       },
-      include: { user: true },
+      relations: ['user'],
     });
 
     if (!member) {
       throw new ForbiddenException('Usuário não pertence à comunidade');
     }
 
-    const post = await this.prisma.post.create({
-      data: {
-        content: data.content,
-        userId: userId,
-        communityId: data.communityId,
-      },
+    const post = this.postRepository.create({
+      content: data.content,
+      userId: userId,
+      communityId: data.communityId,
     });
+    await this.postRepository.save(post);
 
     return {
       ...post,
@@ -49,7 +61,7 @@ export class PostService {
   }
 
   async toggleLike(postId: string, userId: string) {
-    const post = await this.prisma.post.findUnique({
+    const post = await this.postRepository.findOne({
       where: { id: postId },
     });
 
@@ -57,27 +69,22 @@ export class PostService {
       throw new NotFoundException('Post não encontrado');
     }
 
-    const likeWhere = {
-      userId_postId: { userId, postId },
-    };
-
-    const existingLike = await this.prisma.like.findUnique({
-      where: likeWhere,
+    const existingLike = await this.likeRepository.findOne({
+      where: { userId, postId },
     });
 
     let liked: boolean;
 
     if (existingLike) {
-      await this.prisma.like.delete({ where: likeWhere });
+      await this.likeRepository.remove(existingLike);
       liked = false;
     } else {
-      await this.prisma.like.create({
-        data: { userId, postId },
-      });
+      const newLike = this.likeRepository.create({ userId, postId });
+      await this.likeRepository.save(newLike);
       liked = true;
     }
 
-    const totalLikes = await this.prisma.like.count({
+    const totalLikes = await this.likeRepository.count({
       where: { postId },
     });
 

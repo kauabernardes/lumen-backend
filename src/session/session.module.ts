@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { SessionGateway } from './session.gateway';
-import { PrismaModule } from 'src/prisma/prisma.module';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { UserModule } from 'src/user/user.module';
 import { SessionService } from './session.service';
 import { SessionController } from './session.controller';
-import { UserModule } from 'src/user/user.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Session } from 'src/schema/session.entity';
+import { ParticipantSession } from 'src/schema/participant-session.entity';
 
 @Module({
-  imports: [UserModule],
+  imports: [
+    UserModule,
+    TypeOrmModule.forFeature([Session, ParticipantSession]),
+  ],
   providers: [SessionGateway, SessionService],
   controllers: [SessionController],
 })

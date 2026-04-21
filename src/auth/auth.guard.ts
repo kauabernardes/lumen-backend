@@ -23,12 +23,10 @@ export class AuthGuard implements CanActivate {
     try {
       const decoded = jwt.verify(token, 'segredo');
       request['user'] = decoded;
- 
-
 
       return true;
     } catch (error) {
       throw new UnauthorizedException('Token inválido ou expirado');
     }
   }
-} 
+}
