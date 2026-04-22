@@ -19,6 +19,8 @@ import { Session } from './schema/session.entity';
 import { ParticipantSession } from './schema/participant-session.entity';
 import { Reward } from './schema/reward.entity';
 import { Earn } from './schema/earn.entity';
+import { DailyLog } from './schema/daily-log.entity'; 
+import { DailyLogModule } from './daily-log/daily-log.module'; 
 
 @Module({
   imports: [
@@ -41,9 +43,10 @@ import { Earn } from './schema/earn.entity';
           ParticipantSession,
           Reward,
           Earn,
+          DailyLog, 
         ],
         logging: true,
-        synchronize: true, // Set to false in production
+        synchronize: true,
         ssl: true,
         extra: {
           ssl: {
@@ -58,6 +61,7 @@ import { Earn } from './schema/earn.entity';
     UserModule,
     CommunityModule,
     RewardModule,
+    DailyLogModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
