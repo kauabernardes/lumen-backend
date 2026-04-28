@@ -4,12 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+
 import { Community } from 'src/schema/community.entity';
 import { Member } from 'src/schema/member.entity';
 import { Post } from 'src/schema/post.entity';
 import { Create } from './dto/create.dto';
 import { PaginationDto } from 'src/util/dto/pagination.dto';
+import { DataSource, IsNull, Not, Repository } from 'typeorm';
 
 @Injectable()
 export class CommunityService {
@@ -208,14 +209,23 @@ export class CommunityService {
 
       const [posts, total] = await Promise.all([
         queryBuilder.getMany(),
-        this.postRepository.count({ where: { communityId } }),
+        this.postRepository.count({ where: { communityId, parentId: IsNull() } }),
       ]);
+
+ 
+      const commentsCount = await Promise.all(
+        posts.map((post) =>
+          this.postRepository.count({ where: { parentId: post.id } }),
+        ),
+      ); 
+    
 
       const postsWithLikedStatus = posts.map((post: any) => ({
         ...post,
         isLiked: post.likes && post.likes.length > 0,
         likes: undefined,
         likesCount: post.likesCount,
+        commentsCount: commentsCount[posts.indexOf(post)],
       }));
 
       return {

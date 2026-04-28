@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req, UseGuards, Get } from '@nestjs/common';
 import { DailyLogService } from './daily-log.service';
 import { CreateDailyLogDto } from './dto/create-daily-log.dto';
 import { AuthGuard } from '../auth/auth.guard';
@@ -18,5 +18,11 @@ export class DailyLogController {
       message: 'Registro criado com sucesso',
       data,
     };
+  }
+
+  @Get('summary')
+  async getSummary(@Req() req) {
+    const userId = req.user.id;
+    return await this.service.getSummary(userId);
   }
 }
