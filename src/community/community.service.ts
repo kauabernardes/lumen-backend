@@ -128,16 +128,10 @@ export class CommunityService {
         this.communityRepository.count(),
       ]);
 
-      // Note: TypeORM doesn't automatically add '_count' like Prisma.
-      // I'll assume the user might need to adjust the entity or use a manual count.
-      // For now, I'll format the response to match the existing API.
-
       const formattedCommunities = communitiesWithRelations.map(
         (community: any) => {
-          // In TypeORM, if we leftJoinAndSelect with a filter, 'members' will only contain the filtered ones.
           const isMember = community.members && community.members.length > 0;
 
-          // Remove members from the response as per the original implementation
           const { members, ...rest } = community;
 
           return {
@@ -170,10 +164,6 @@ export class CommunityService {
       throw new NotFoundException('Comunidade não encontrada');
     }
 
-    // Manually adding the count if needed, or relying on relations
-    // The original implementation used _count: { select: { members: true } }
-    // In TypeORM, we can use a subquery or just count the relations if loaded.
-    // For simplicity, I'll add a property to the returned object.
     const memberCount = await this.dataSource.getRepository(Member).count({
       where: { communityId },
     });
@@ -236,6 +226,27 @@ export class CommunityService {
           lastPage: Math.ceil(total / limit) || 1,
         },
       };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getIn(userId: string) {
+    try {
+      const queryBuilder = this.communityRepository
+        .createQueryBuilder('community')
+        .innerJoin('community.members', 'members', 'members.userId = :userId', {
+          userId,
+        })
+
+        .loadRelationCountAndMap('community.membersCount', 'community.members');
+
+      const communities = await queryBuilder.getMany();
+
+      return communities.map((community: any) => ({
+        ...community,
+        isMember: true,
+      }));
     } catch (error) {
       throw error;
     }

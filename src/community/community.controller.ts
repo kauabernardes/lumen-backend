@@ -25,6 +25,12 @@ export class CommunityController {
   }
 
   @UseGuards(AuthGuard)
+  @Get('in')
+  async getIn(@Request() req) {
+    return this.communityService.getIn(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard)
   @Post(':id/join')
   async join(@Param('id') id: string, @Request() req) {
     return this.communityService.join(id, req.user.sub);

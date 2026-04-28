@@ -5,6 +5,7 @@ import { Member } from './member.entity';
 import { Community } from './community.entity';
 import { Earn } from './earn.entity';
 import { Post } from './post.entity';
+import { DailyLog } from './daily-log.entity';
 
 @Entity()
 export class User {
@@ -40,4 +41,7 @@ export class User {
 
   @OneToMany(() => Post, (post) => post.user)
   posts!: Post[];
+
+  @OneToMany(() => DailyLog, (dailyLog) => dailyLog.user)
+  dailyLogs!: DailyLog[];
 }
