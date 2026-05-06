@@ -11,7 +11,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { SessionService } from './session.service';
 import { JoinSessionDto } from './dto/join-session.dto';
-import * as jwt from 'jsonwebtoken'; // <-- Importe o jwt aqui
+import * as jwt from 'jsonwebtoken'; 
 
 @WebSocketGateway({ cors: true, namespace: '/session' })
 export class SessionGateway
@@ -53,10 +53,10 @@ export class SessionGateway
     @MessageBody() payload: JoinSessionDto,
   ) {
     try {
-      // 1. Extrai e verifica o token
+      
       let userId: string;
       try {
-        // Usa a mesma chave secreta que você configurou no AuthService
+        
         const decoded = jwt.verify(payload.token, 'segredo') as any;
         userId = decoded.sub; // Pega o ID do usuário de dentro do token
       } catch (err) {
@@ -64,7 +64,6 @@ export class SessionGateway
         return { error: 'Acesso negado. Faça login novamente.' };
       }
 
-      // 2. Continua a lógica normalmente, mas agora usando o userId seguro
       const result = await this.sessionService.joinSession(
         userId,
         client.id,
