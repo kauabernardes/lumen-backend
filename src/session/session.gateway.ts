@@ -58,7 +58,8 @@ export class SessionGateway
       try {
         
         const decoded = jwt.verify(payload.token, 'segredo') as any;
-        userId = decoded.sub; // Pega o ID do usuário de dentro do token
+        userId = decoded.sub;
+        
       } catch (err) {
         console.error('[Socket Error] Token inválido ou expirado');
         return { error: 'Acesso negado. Faça login novamente.' };
@@ -75,6 +76,7 @@ export class SessionGateway
         userId: userId,
         sessionId: result.sessionId,
       });
+      console.log(`[Socket] Usuário ${userId} entrou na sala ${result.sessionId}`);
 
       return {
         success: true,

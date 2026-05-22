@@ -14,6 +14,7 @@ export class AuthController {
 
   @Post('login')
   async login(@Body() body: LoginDto, @Req() req: any) {
+    console.log(`[Auth] Login attempt for ${body.identifier} from IP ${req.ip}`);
     return this.authService.login(body.identifier, body.password, req.ip);
   }
 }

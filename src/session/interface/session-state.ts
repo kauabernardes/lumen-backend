@@ -7,4 +7,5 @@ export interface SessionState {
   participants: SessionParticipant;
   pomodoro: PomodoroState;
   pendingDestructionTimeout?: NodeJS.Timeout;
+  themes? : string[];
 }

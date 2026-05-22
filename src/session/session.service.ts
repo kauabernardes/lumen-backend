@@ -131,7 +131,7 @@ export class SessionService {
       .to(sessionId)
       .emit('user_joined', { userId, username: user.username });
 
-    // Notifica todos sobre a nova lista de participantes
+    
     this.broadcastParticipants(sessionId);
 
     console.log(
@@ -144,6 +144,13 @@ export class SessionService {
       pomodoro: { ...sessionState?.pomodoro, intervalId: undefined },
     };
   }
+
+  /**
+   * Lida com a desconexão de um usuário, atualizando o tempo gasto na
+   * sessão e removendo-o da lista de participantes. Se a sessão ficar
+   * vazia, inicia um timer para destruição após um período de inatividade.
+   */
+
 
   async handleUserDisconnect(sessionId: string, userId: string) {
     const sessionState = this.activeSessions.get(sessionId);
@@ -174,7 +181,7 @@ export class SessionService {
     sessionState.participants.delete(userId);
     this.wsServer.to(sessionId).emit('user_left', { userId });
 
-    // Notifica todos sobre a nova lista de participantes
+   
     this.broadcastParticipants(sessionId);
 
     if (sessionState.participants.size === 0) {
@@ -191,6 +198,11 @@ export class SessionService {
       }, POMODORO.TEMPO_INATIVIDADE);
     }
   }
+
+  /**
+   * Alterna o estado do timer entre "running" e "paused". Somente o anfitrião da sessão pode realizar esta ação.
+   */
+
 
   toggleTimer(sessionId: string, userId: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
@@ -211,6 +223,11 @@ export class SessionService {
     return;
   }
 
+  /**
+   * Força o início de um período de pausa, seja curta ou longa, reiniciando o tempo restante e atualizando a fase.
+   */
+  
+
   forceBreak(sessionId: string, userId: string, type: 'short' | 'long') {
     const session = this.getSessionAndValidateHost(sessionId, userId);
     const pomodoro = session.pomodoro;
@@ -228,6 +245,10 @@ export class SessionService {
     this.broadcastTimerState(sessionId, pomodoro);
     return { success: true, status: 'break', timeLeft: pomodoro.timeLeft };
   }
+
+  /**
+    * Força o início de um período de estudo, reiniciando o ciclo e o tempo restante.
+   */
 
   forceStudy(sessionId: string, userId: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
@@ -253,6 +274,9 @@ export class SessionService {
     return session;
   }
 
+/**
+   * Lida com o tick do timer, atualizando o tempo restante e mudando de fase quando necessário.
+   */
   private handleTick(sessionId: string, pomodoro: PomodoroState) {
     pomodoro.timeLeft -= 1;
     this.broadcastTimerState(sessionId, pomodoro);
@@ -284,11 +308,19 @@ export class SessionService {
     this.broadcastTimerState(sessionId, pomodoro);
   }
 
+/**
+   * Pausa o timer, limpando o intervalo e atualizando o status para "paused".
+   */
+
   private pauseTimer(pomodoro: PomodoroState) {
     if (pomodoro.intervalId) clearInterval(pomodoro.intervalId);
     pomodoro.status = 'paused';
     pomodoro.intervalId = undefined;
   }
+
+  /**
+   * Envia o estado atualizado do timer para todos os participantes da sessão.
+   */
 
   private broadcastTimerState(sessionId: string, pomodoro: PomodoroState) {
     this.wsServer.to(sessionId).emit('timer_state', {
@@ -330,4 +362,19 @@ export class SessionService {
 
     this.wsServer.to(sessionId).emit('participants_updated', participants);
   }
+
+
+  addTheme(sessionId: string, userId: string, theme: string) {
+    const session = this.getSessionAndValidateHost(sessionId, userId);
+    if (!session.themes) {
+      session.themes = [];
+    }
+    session.themes.push(theme);
+     return { success: true, message: 'Tema adicionado com sucesso'};
+  }
+
+  private broadcastThemes(sessionId: string, themes: string[]) {
+    this.wsServer.to(sessionId).emit('themes_updated', themes);
+  }
 }
+ 
