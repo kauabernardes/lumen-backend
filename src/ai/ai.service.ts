@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenAI, Type } from '@google/genai';
 import { AskDto } from './dto/ask.dto';
+import { SessionMessage } from 'src/session/interface/session-message';
+import { ValidateResponseDto } from './dto/validate-response.dto';
 
 @Injectable()
 export class AiService {
@@ -62,7 +64,7 @@ export class AiService {
       };
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.5-flash',
         config,
         contents: [
           {
@@ -83,4 +85,89 @@ export class AiService {
       throw new Error('Failed to generate content com o novo SDK');
     }
   }
+
+  async validate(ask: AskDto, messages: SessionMessage[]) : Promise<ValidateResponseDto>{
+    try { 
+      const config = {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ['answerBy', 'feedback'],
+          properties: {
+            answerBy: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                required: ['userId', 'username', 'isCorrect'],
+                properties: {
+                  userId: {
+                    type: Type.STRING,
+                    description: 'ID do usuário que respondeu',
+                  },
+                  username: {
+                    type: Type.STRING,
+                    description: 'Nome do usuário que respondeu',
+                  },
+                  isCorrect: {
+                    type: Type.BOOLEAN,
+                    description: 'Indica se a resposta do usuário está correta',
+                  },
+                },
+              },
+            },
+            feedback: {
+              type: Type.STRING,
+              description: 'Feedback geral sobre as respostas dos usuários',
+            },
+          },
+        }, 
+        'systemInstruction': [{'text': `Você atua como 'Luminha', a assistente de estudos inteligente e acolhedora da plataforma Lumen. Sua missão é avaliar debates acadêmicos ocorridos no chat durante sessões Pomodoro em grupo.
+
+          Sua tarefa é cruzar a <questao_alvo> com o <historico_chat> e determinar rigorosamente quais estudantes acertaram ou erraram a resposta.
+
+          DIRETRIZES DE AVALIAÇÃO:
+          1. Análise Contextual: Os alunos debatem de forma livre. Avalie o raciocínio construído ao longo das mensagens do aluno, não apenas frases isoladas. Ignore completamente conversas paralelas (off-topic).
+          2. Regra da Resposta Parcial (Incorreta): Se um aluno acertar apenas uma parte do conceito, mas errar ou omitir um elemento crucial para a resolução completa da dificuldade indicada, marque 'isCorrect' como FALSE. Use o campo 'feedback' para guiá-los sobre o que faltou.
+          3. Regra da Compreensão Indireta (Correta): Se o aluno não der uma resposta direta e formatada, mas a sua linha de argumentação no chat demonstrar domínio prático ou teórico sobre o tema, marque 'isCorrect' como TRUE.
+          4. Construção do Feedback: O campo 'feedback' deve englobar o desempenho geral da sala. Elogie o engajamento, esclareça pontos de confusão que surgiram no chat e explique brevemente a resposta ideal da questão.
+
+          DADOS PARA AVALIAÇÃO:
+
+          <questao_alvo>
+          Título: ${ask.title}
+          Contexto: ${ask.context}
+          Pergunta: ${ask.question}
+          Dificuldade: ${ask.difficulty}
+          </questao_alvo>
+
+          <historico_chat>
+          ${messages.map(m => `${m.username} - ${m.userId}: ${m.text}`).join('\n')}
+          </historico_chat>`}]
+      }
+
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        config,
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Faça a validação da rodada atual de estudos.' }],
+          },
+        ],
+      });
+
+      if (!response.text) {
+        throw new Error('A resposta da IA veio vazia.');
+      }
+
+      const data = JSON.parse(response.text);
+      return Object.assign(new ValidateResponseDto(), data);
+
+    } catch (e) {
+        console.error('Error validating responses:', e);
+        throw new Error('Failed to validate responses');
+    }
+  }
+
 }
+

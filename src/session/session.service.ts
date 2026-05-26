@@ -16,6 +16,7 @@ import { SessionParticipant } from './types/session-participant';
 import { PomodoroState } from './interface/pomodoro-state';
 import { SessionMessage } from './interface/session-message';
 import { AiService } from 'src/ai/ai.service';
+import { AskDto } from 'src/ai/dto/ask.dto';
 
 @Injectable()
 export class SessionService {
@@ -389,9 +390,33 @@ export class SessionService {
     }
   }
 
+  getThemes(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+    return sessionState.themes || [];
+  }
+
   private async genAiQuestion(sessionId: string) {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) return;
+
+    if (!sessionState.themes || sessionState.themes.length === 0) {
+          const message: SessionMessage = {
+            id: v7(),
+            userId: 'ai',
+            username: 'Luminha',
+            text: 'Ei, para testar seus conhecimentos preciso que me diga quais temas você quer estudar! Adicione um tema para eu gerar uma questão personalizada para você.',
+            title: "",
+            subtitle: "",
+            isAi: true,
+            timestamp: new Date().toISOString(),
+          };
+
+    this.wsServer.to(sessionId).emit('receive_message', message);
+          return;
+    }
 
     this.wsServer.to(sessionId).emit('ai_generating');
     const ask = await this.aiService.ask(sessionState.themes || []);
@@ -417,5 +442,42 @@ export class SessionService {
     };
 
     this.wsServer.to(sessionId).emit('receive_message', message);
+  }
+
+  getAiLastQuestion(sessionId: string) : AskDto {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+
+    if (!sessionState.ai.lastAsk) {
+      throw new NotFoundException('Nenhuma questão gerada');
+    }
+
+    return sessionState.ai.lastAsk;
+
+
+  }
+
+  async validate(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+
+    if (!sessionState.ai.lastAsk) {
+      throw new NotFoundException('Nenhuma questão gerada para validar');
+    }
+
+   
+      const messages = sessionState.messages.filter((m) => !m.isAi);
+      const validation = await this.aiService.validate(
+        sessionState.ai.lastAsk,
+        messages,
+      );
+      
+      this.wsServer.to(sessionId).emit('validation_result', validation);
+      console.log('Validation result:', validation);
+
   }
 }

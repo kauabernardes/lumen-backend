@@ -58,4 +58,19 @@ export class SessionController {
     const userId = req.user.sub;
     return this.sessionService.addTheme(sessionId, userId, body.theme);
   }
+
+  @Get(':sessionId/themes')
+  async getThemes(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.getThemes(sessionId);
+  }
+
+  @Get(':sessionId/ai/question')
+  async genAiQuestion(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.getAiLastQuestion(sessionId);
+  }
+
+  @Post(':sessionId/ai/validate')
+  async validateAiQuestion(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.validate(sessionId);
+  }
 }
