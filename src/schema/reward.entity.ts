@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Earn } from './earn.entity';
 
 @Entity()
 export class Reward {
@@ -15,6 +14,6 @@ export class Reward {
   @Column({ type: 'bigint' })
   value!: string;
 
-  @OneToMany(() => Earn, (earn) => earn.reward)
-  earns!: Earn[];
+  //@OneToMany(() => Earn, (earn) => earn.reward)
+  //earns!: Earn[];
 }

@@ -1,5 +1,7 @@
 import { SessionParticipant } from '../types/session-participant';
+import { AIState } from './ai-state';
 import { PomodoroState } from './pomodoro-state';
+import { SessionMessage } from './session-message';
 
 export interface SessionState {
   hostId: string;
@@ -7,5 +9,7 @@ export interface SessionState {
   participants: SessionParticipant;
   pomodoro: PomodoroState;
   pendingDestructionTimeout?: NodeJS.Timeout;
-  themes? : string[];
+  themes?: string[];
+  messages: SessionMessage[];
+  ai: AIState;
 }

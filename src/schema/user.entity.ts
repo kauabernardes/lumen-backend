@@ -3,7 +3,6 @@ import { ParticipantSession } from './participant-session.entity';
 import { Session } from './session.entity';
 import { Member } from './member.entity';
 import { Community } from './community.entity';
-import { Earn } from './earn.entity';
 import { Post } from './post.entity';
 import { DailyLog } from './daily-log.entity';
 
@@ -35,9 +34,6 @@ export class User {
 
   @OneToMany(() => Community, (community) => community.author)
   communities!: Community[];
-
-  @OneToMany(() => Earn, (earn) => earn.user)
-  earns!: Earn[];
 
   @OneToMany(() => Post, (post) => post.user)
   posts!: Post[];

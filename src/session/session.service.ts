@@ -14,6 +14,8 @@ import { UserService } from 'src/user/user.service';
 import { v7 } from 'uuid';
 import { SessionParticipant } from './types/session-participant';
 import { PomodoroState } from './interface/pomodoro-state';
+import { SessionMessage } from './interface/session-message';
+import { AiService } from 'src/ai/ai.service';
 
 @Injectable()
 export class SessionService {
@@ -21,7 +23,7 @@ export class SessionService {
     string,
     SessionState
   >();
-  private wsServer: Server;
+  private wsServer!: Server;
 
   constructor(
     @InjectRepository(Session)
@@ -29,6 +31,7 @@ export class SessionService {
     @InjectRepository(ParticipantSession)
     private readonly participantSessionRepository: Repository<ParticipantSession>,
     private readonly userService: UserService,
+    private readonly aiService: AiService,
   ) {}
 
   injectWebSocketServer(server: Server) {
@@ -77,6 +80,8 @@ export class SessionService {
           phase: 'study',
           cycle: 0,
         },
+        messages: [],
+        ai: { lastAsk: null },
       });
 
       try {
@@ -131,7 +136,6 @@ export class SessionService {
       .to(sessionId)
       .emit('user_joined', { userId, username: user.username });
 
-    
     this.broadcastParticipants(sessionId);
 
     console.log(
@@ -150,7 +154,6 @@ export class SessionService {
    * sessão e removendo-o da lista de participantes. Se a sessão ficar
    * vazia, inicia um timer para destruição após um período de inatividade.
    */
-
 
   async handleUserDisconnect(sessionId: string, userId: string) {
     const sessionState = this.activeSessions.get(sessionId);
@@ -181,7 +184,6 @@ export class SessionService {
     sessionState.participants.delete(userId);
     this.wsServer.to(sessionId).emit('user_left', { userId });
 
-   
     this.broadcastParticipants(sessionId);
 
     if (sessionState.participants.size === 0) {
@@ -202,7 +204,6 @@ export class SessionService {
   /**
    * Alterna o estado do timer entre "running" e "paused". Somente o anfitrião da sessão pode realizar esta ação.
    */
-
 
   toggleTimer(sessionId: string, userId: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
@@ -226,7 +227,6 @@ export class SessionService {
   /**
    * Força o início de um período de pausa, seja curta ou longa, reiniciando o tempo restante e atualizando a fase.
    */
-  
 
   forceBreak(sessionId: string, userId: string, type: 'short' | 'long') {
     const session = this.getSessionAndValidateHost(sessionId, userId);
@@ -247,7 +247,7 @@ export class SessionService {
   }
 
   /**
-    * Força o início de um período de estudo, reiniciando o ciclo e o tempo restante.
+   * Força o início de um período de estudo, reiniciando o ciclo e o tempo restante.
    */
 
   forceStudy(sessionId: string, userId: string) {
@@ -260,6 +260,7 @@ export class SessionService {
     pomodoro.cycle = 0;
 
     this.broadcastTimerState(sessionId, pomodoro);
+    this.genAiQuestion(sessionId);
     return { success: true, status: 'paused', timeLeft: pomodoro.timeLeft };
   }
 
@@ -274,7 +275,7 @@ export class SessionService {
     return session;
   }
 
-/**
+  /**
    * Lida com o tick do timer, atualizando o tempo restante e mudando de fase quando necessário.
    */
   private handleTick(sessionId: string, pomodoro: PomodoroState) {
@@ -308,7 +309,7 @@ export class SessionService {
     this.broadcastTimerState(sessionId, pomodoro);
   }
 
-/**
+  /**
    * Pausa o timer, limpando o intervalo e atualizando o status para "paused".
    */
 
@@ -363,18 +364,55 @@ export class SessionService {
     this.wsServer.to(sessionId).emit('participants_updated', participants);
   }
 
-
   addTheme(sessionId: string, userId: string, theme: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
     if (!session.themes) {
       session.themes = [];
     }
     session.themes.push(theme);
-     return { success: true, message: 'Tema adicionado com sucesso'};
+    this.broadcastThemes(sessionId, session.themes);
+    return { success: true, message: 'Tema adicionado com sucesso' };
   }
 
   private broadcastThemes(sessionId: string, themes: string[]) {
     this.wsServer.to(sessionId).emit('themes_updated', themes);
   }
+
+  saveMessage(message: SessionMessage, sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    sessionState.messages.push(message);
+
+    if (sessionState.messages.length > 100) {
+      sessionState.messages.shift();
+    }
+  }
+
+  private async genAiQuestion(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    const ask = await this.aiService.ask(sessionState.themes || []);
+
+    sessionState.ai.lastAsk = ask;
+    this.broadcastAiAsk(sessionId);
+  }
+
+  private broadcastAiAsk(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    const message: SessionMessage = {
+      id: v7(),
+      userId: 'ai',
+      username: 'Luminha',
+      text: sessionState.ai.lastAsk?.question || '',
+      title: `sessionState.ai.lastAsk?.title - Dificuldade: ${sessionState.ai.lastAsk?.difficulty} `,
+      subtitle: `${sessionState.ai.lastAsk?.context}`,
+      isAi: true,
+    };
+
+    this.wsServer.to(sessionId).emit('ai_message', message);
+  }
 }
- 

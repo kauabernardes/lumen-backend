@@ -56,6 +56,6 @@ export class SessionController {
     @Req() req: any,
   ) {
     const userId = req.user.sub;
-    return await this.sessionService.addTheme(sessionId, userId, body.theme);
+    return this.sessionService.addTheme(sessionId, userId, body.theme);
   }
 }
