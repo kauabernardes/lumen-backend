@@ -393,7 +393,9 @@ export class SessionService {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) return;
 
+    this.wsServer.to(sessionId).emit('ai_generating');
     const ask = await this.aiService.ask(sessionState.themes || []);
+    this.wsServer.to(sessionId).emit('ai_generated');
 
     sessionState.ai.lastAsk = ask;
     this.broadcastAiAsk(sessionId);
@@ -407,12 +409,13 @@ export class SessionService {
       id: v7(),
       userId: 'ai',
       username: 'Luminha',
-      text: sessionState.ai.lastAsk?.question || '',
-      title: `sessionState.ai.lastAsk?.title - Dificuldade: ${sessionState.ai.lastAsk?.difficulty} `,
+      text: sessionState.ai?.lastAsk?.question || '',
+      title: `${sessionState.ai.lastAsk?.title} - Dificuldade: ${sessionState.ai.lastAsk?.difficulty} `,
       subtitle: `${sessionState.ai.lastAsk?.context}`,
       isAi: true,
+      timestamp: new Date().toISOString(),
     };
 
-    this.wsServer.to(sessionId).emit('ai_message', message);
+    this.wsServer.to(sessionId).emit('receive_message', message);
   }
 }
