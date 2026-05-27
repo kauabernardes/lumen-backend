@@ -1,10 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from 'typeorm';
 import { ParticipantSession } from './participant-session.entity';
 import { Session } from './session.entity';
 import { Member } from './member.entity';
 import { Community } from './community.entity';
 import { Post } from './post.entity';
 import { DailyLog } from './daily-log.entity';
+import { Reward } from './reward.entity';
+import { UserReward } from './user-reward.entity';
 
 @Entity()
 export class User {
@@ -12,13 +14,13 @@ export class User {
   id!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true })
-  email!: string;
+  email: string;
 
   @Column({ type: 'varchar', length: 50, unique: true })
-  username!: string;
+  username: string;
 
   @Column({ type: 'varchar', length: 255 })
-  password!: string;
+  password: string;
 
   @OneToMany(
     () => ParticipantSession,
@@ -27,17 +29,19 @@ export class User {
   participantSessions!: ParticipantSession[];
 
   @OneToMany(() => Session, (session) => session.host)
-  sessions!: Session[];
+  sessions: Session[];
 
   @OneToMany(() => Member, (member) => member.user)
-  members!: Member[];
+  members: Member[];
 
   @OneToMany(() => Community, (community) => community.author)
-  communities!: Community[];
+  communities: Community[];
 
   @OneToMany(() => Post, (post) => post.user)
-  posts!: Post[];
+  posts: Post[];
 
   @OneToMany(() => DailyLog, (dailyLog) => dailyLog.user)
-  dailyLogs!: DailyLog[];
+  dailyLogs: DailyLog[];
+
+@OneToMany(() => UserReward, (userReward) => userReward.user) userRewards: UserReward[];
 }

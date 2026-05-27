@@ -17,6 +17,7 @@ import { PomodoroState } from './interface/pomodoro-state';
 import { SessionMessage } from './interface/session-message';
 import { AiService } from 'src/ai/ai.service';
 import { AskDto } from 'src/ai/dto/ask.dto';
+import { RewardService } from 'src/reward/reward.service';
 
 @Injectable()
 export class SessionService {
@@ -31,8 +32,13 @@ export class SessionService {
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(ParticipantSession)
     private readonly participantSessionRepository: Repository<ParticipantSession>,
+    
     private readonly userService: UserService,
+    
     private readonly aiService: AiService,
+
+    private readonly rewardService: RewardService,
+
   ) {}
 
   injectWebSocketServer(server: Server) {
@@ -475,6 +481,10 @@ export class SessionService {
         sessionState.ai.lastAsk,
         messages,
       );
+
+      const { difficulty, title} = sessionState.ai.lastAsk;
+
+      const getRewards = await this.rewardService.getRewardByAnswerIaValidate(validation.answerBy, difficulty, title);
       
       this.wsServer.to(sessionId).emit('validation_result', validation);
       console.log('Validation result:', validation);

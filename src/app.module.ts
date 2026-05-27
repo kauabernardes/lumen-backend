@@ -21,6 +21,8 @@ import { Reward } from './schema/reward.entity';
 import { DailyLog } from './schema/daily-log.entity';
 import { DailyLogModule } from './daily-log/daily-log.module';
 import { AiModule } from './ai/ai.module';
+import { RewardModule } from './reward/reward.module';
+import { UserReward } from './schema/user-reward.entity';
 
 @Module({
   imports: [
@@ -42,7 +44,7 @@ import { AiModule } from './ai/ai.module';
           Session,
           ParticipantSession,
           Reward,
-
+          UserReward,
           DailyLog,
         ],
         logging: true,
@@ -62,6 +64,7 @@ import { AiModule } from './ai/ai.module';
     CommunityModule,
     DailyLogModule,
     AiModule,
+    RewardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

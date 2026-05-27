@@ -7,11 +7,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Session } from 'src/schema/session.entity';
 import { ParticipantSession } from 'src/schema/participant-session.entity';
 import { AiModule } from 'src/ai/ai.module';
+import { RewardModule } from 'src/reward/reward.module';
 
 @Module({
   imports: [
     UserModule,
     AiModule,
+    RewardModule,
     TypeOrmModule.forFeature([Session, ParticipantSession]),
   ],
   providers: [SessionGateway, SessionService],

@@ -13,8 +13,7 @@ export class AiService {
       apiKey: process.env.GEMINI_API_KEY,
     });
   }
-
-  async ask(temas: string[]): Promise<AskDto> {
+async ask(temas: string[]): Promise<AskDto> {
     console.log('Generating question with themes:', temas);
     try {
       const config = {
@@ -25,18 +24,15 @@ export class AiService {
           properties: {
             title: {
               type: Type.STRING,
-              description:
-                'Um título curto e chamativo para o desafio. No maximo 5 palavras.',
+              description: 'Um título curto e chamativo para o desafio. No máximo 5 palavras.',
             },
             context: {
               type: Type.STRING,
-              description:
-                'Um breve cenário ou texto base para introduzir o problema',
+              description: 'Contexto da pergunta. DEVE VARIAR: pode ser nulo/vazio, uma frase curtíssima de introdução, ou um texto base maior (se for uma questão estilo vestibular).',
             },
             question: {
               type: Type.STRING,
-              description:
-                'A pergunta direta que os alunos devem debater e responder',
+              description: 'A pergunta direta que os alunos devem debater e responder.',
             },
             difficulty: {
               type: Type.STRING,
@@ -47,18 +43,18 @@ export class AiService {
 
         systemInstruction: [
           {
-            text: `Você é uma assistente de estudos, intitulada 'Luminha', localizada em uma sessao de estudos pomodoro em
-        uma plataforma de estudos chamada Lumen. Sua função é criar questões para os estudantes conectados nessa sessão,
-        baseados nos tema da sessão definida pelo anfitrão.
+            text: `Você atua como 'Luminha', a assistente de estudos inteligente da plataforma Lumen, auxiliando em uma sessão Pomodoro.
+        Sua função é criar UMA questão para os estudantes debaterem, baseada nos temas: ${temas.join(', ')} (focando principalmente no último).
         
-        A questão deve ser formulada de maneira clara, e podendo utilizar de padrões de vestibulares, concursos e etc. Deve-se estimular o
-        pensamento crítico e, se possível, a discussão entre os alunos.
-
-        A questão deve conter um título curto e chamativo, um breve cenário ou texto base para introduzir o problema,
-        uma pergunta direta que os alunos devem debater e responder, e uma indicação de dificuldade (fácil, médio ou difícil).
-
-        Os temas da sessão são: ${temas.join(', ')}. Crie uma questão com base principalmente no último, tendo em vista
-        que é o tema atual de estudo, porém caso faça sentido e tenha coerência, utilize os outros temas para enriquecer o contexto.`,
+        DIRETRIZES DE DIVERSIFICAÇÃO DE FORMATO (MUITO IMPORTANTE):
+        Para que a sessão não fique monótona e cansativa, você DEVE variar drasticamente o estilo e o tamanho das questões a cada rodada. Escolha um dos estilos abaixo para basear sua geração:
+        
+        1. Vapt-Vupt (Direta): Sem cenário longo. Uma pergunta puramente conceitual ou técnica, bem direta ao ponto.
+        2. Desafio Prático Rápido: Um miniproblema de apenas uma ou duas linhas focado em aplicação prática.
+        3. Afirmação Polêmica / Verdadeiro ou Falso: Lance uma afirmação forte sobre o tema e peça para os alunos debaterem se é verdade e justificarem.
+        4. Clássica (Vestibular/Concurso): Apenas de vez em quando, use uma estrutura mais longa e robusta com um texto base interpretativo (Cite a sigla do vestibular/concurso e ano).
+        
+        Sempre estimule o pensamento crítico. O campo 'context' deve ser adaptado ao formato escolhido (se for uma pergunta direta, o contexto deve ser mínimo ou direto).`,
           },
         ],
       };
@@ -69,7 +65,7 @@ export class AiService {
         contents: [
           {
             role: 'user',
-            parts: [{ text: 'Gere a questão para a rodada atual de estudos.' }],
+            parts: [{ text: 'Gere a questão para a rodada atual de estudos variando o formato em relação às anteriores.' }],
           },
         ],
       });

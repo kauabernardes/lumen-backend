@@ -1,8 +1,6 @@
+import { AnswerByDto } from "./answer-by.dto";
+
 export class ValidateResponseDto {
-  answerBy: {
-    userId: string;
-    username: string;
-    isCorrect: boolean;
-  }[];
+  answerBy: AnswerByDto[];
   feedback: string;
 }
