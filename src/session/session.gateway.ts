@@ -1,3 +1,4 @@
+import { SessionMessage } from './interface/session-message';
 import {
   ConnectedSocket,
   MessageBody,
@@ -11,14 +12,17 @@ import {
 import { Server, Socket } from 'socket.io';
 import { SessionService } from './session.service';
 import { JoinSessionDto } from './dto/join-session.dto';
-import * as jwt from 'jsonwebtoken'; 
+import * as jwt from 'jsonwebtoken';
+import { v7 } from 'uuid';
+import { SendMessageDto } from './dto/send-message.dto';
+import { info } from 'console';
 
 @WebSocketGateway({ cors: true, namespace: '/session' })
 export class SessionGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private socketToUserMap = new Map<
     string,
@@ -53,12 +57,10 @@ export class SessionGateway
     @MessageBody() payload: JoinSessionDto,
   ) {
     try {
-      
       let userId: string;
       try {
-        
         const decoded = jwt.verify(payload.token, 'segredo') as any;
-        userId = decoded.sub; // Pega o ID do usuário de dentro do token
+        userId = decoded.sub;
       } catch (err) {
         console.error('[Socket Error] Token inválido ou expirado');
         return { error: 'Acesso negado. Faça login novamente.' };
@@ -75,6 +77,9 @@ export class SessionGateway
         userId: userId,
         sessionId: result.sessionId,
       });
+      console.log(
+        `[Socket] Usuário ${userId} entrou na sala ${result.sessionId}`,
+      );
 
       return {
         success: true,
@@ -85,5 +90,48 @@ export class SessionGateway
       console.error('[Socket Error] Falha ao ingressar na sessão:', error);
       return { error: 'Erro interno ao tentar ingressar na sessão' };
     }
+  }
+
+  @SubscribeMessage('send_message')
+  async handleSendMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: SendMessageDto,
+  ) {
+    const info = this.socketToUserMap.get(client.id);
+    if (!info) {
+      return { error: 'Usuário não conectado a uma sessão.' };
+    }
+
+    const session = this.sessionService.activeSessions.get(info.sessionId);
+    if (!session) {
+      return { error: 'Sessão não encontrada.' };
+    }
+    const participant = session.participants.get(info.userId);
+
+    if (!session || !participant) {
+      return { error: 'Sessão ou participante não encontrado.' };
+    }
+
+    if (!payload.text || payload.text.trim() === '') {
+      return { error: 'O texto da mensagem não pode ser vazio.' };
+    }
+
+    if (payload.text.length > 500) {
+      return { error: 'O texto da mensagem é muito longo.' };
+    }
+
+    const message: SessionMessage = {
+      id: v7(),
+      userId: info.userId,
+      username: participant.username,
+      text: payload.text,
+      timestamp: new Date().toISOString(),
+      isAi: false,
+    };
+    console.log(message);
+    this.sessionService.saveMessage(message, info.sessionId);
+    this.server.to(info.sessionId).emit('receive_message', message);
+
+    return { success: true };
   }
 }

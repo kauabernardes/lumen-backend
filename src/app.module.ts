@@ -8,7 +8,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
-import { RewardModule } from './reward/reward.module';
 import { PostModule } from './post/post.module';
 import { User } from './schema/user.entity';
 import { Community } from './schema/community.entity';
@@ -18,9 +17,12 @@ import { Like } from './schema/like.entity';
 import { Session } from './schema/session.entity';
 import { ParticipantSession } from './schema/participant-session.entity';
 import { Reward } from './schema/reward.entity';
-import { Earn } from './schema/earn.entity';
-import { DailyLog } from './schema/daily-log.entity'; 
-import { DailyLogModule } from './daily-log/daily-log.module'; 
+
+import { DailyLog } from './schema/daily-log.entity';
+import { DailyLogModule } from './daily-log/daily-log.module';
+import { AiModule } from './ai/ai.module';
+import { RewardModule } from './reward/reward.module';
+import { UserReward } from './schema/user-reward.entity';
 
 @Module({
   imports: [
@@ -42,8 +44,8 @@ import { DailyLogModule } from './daily-log/daily-log.module';
           Session,
           ParticipantSession,
           Reward,
-          Earn,
-          DailyLog, 
+          UserReward,
+          DailyLog,
         ],
         logging: true,
         synchronize: true,
@@ -60,8 +62,9 @@ import { DailyLogModule } from './daily-log/daily-log.module';
     AuthModule,
     UserModule,
     CommunityModule,
+    DailyLogModule,
+    AiModule,
     RewardModule,
-    DailyLogModule, 
   ],
   controllers: [AppController],
   providers: [AppService],

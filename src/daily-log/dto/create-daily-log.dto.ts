@@ -1,9 +1,6 @@
 import { IsNotEmpty, IsDateString, IsString, IsIn } from 'class-validator';
 
 export class CreateDailyLogDto {
-  @IsDateString()
-  date: string;
-
   @IsNotEmpty()
   @IsString()
   mood: string;

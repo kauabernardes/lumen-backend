@@ -14,6 +14,10 @@ import { UserService } from 'src/user/user.service';
 import { v7 } from 'uuid';
 import { SessionParticipant } from './types/session-participant';
 import { PomodoroState } from './interface/pomodoro-state';
+import { SessionMessage } from './interface/session-message';
+import { AiService } from 'src/ai/ai.service';
+import { AskDto } from 'src/ai/dto/ask.dto';
+import { RewardService } from 'src/reward/reward.service';
 
 @Injectable()
 export class SessionService {
@@ -21,14 +25,19 @@ export class SessionService {
     string,
     SessionState
   >();
-  private wsServer: Server;
+  private wsServer!: Server;
 
   constructor(
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(ParticipantSession)
     private readonly participantSessionRepository: Repository<ParticipantSession>,
+
     private readonly userService: UserService,
+
+    private readonly aiService: AiService,
+
+    private readonly rewardService: RewardService,
   ) {}
 
   injectWebSocketServer(server: Server) {
@@ -77,6 +86,8 @@ export class SessionService {
           phase: 'study',
           cycle: 0,
         },
+        messages: [],
+        ai: { lastAsk: null },
       });
 
       try {
@@ -112,7 +123,7 @@ export class SessionService {
       const newParticipant = this.participantSessionRepository.create({
         sessionId: sessionId,
         userId: userId,
-        time: 0,
+        createdAt: new Date(),
         id: sessionParticipantId,
       });
       await this.participantSessionRepository.save(newParticipant);
@@ -126,12 +137,12 @@ export class SessionService {
       userId: userId,
       username: user.username,
       joinedAt: new Date(),
+      focusTime: 0,
     });
     this.wsServer
       .to(sessionId)
       .emit('user_joined', { userId, username: user.username });
 
-    // Notifica todos sobre a nova lista de participantes
     this.broadcastParticipants(sessionId);
 
     console.log(
@@ -145,6 +156,12 @@ export class SessionService {
     };
   }
 
+  /**
+   * Lida com a desconexão de um usuário, atualizando o tempo gasto na
+   * sessão e removendo-o da lista de participantes. Se a sessão ficar
+   * vazia, inicia um timer para destruição após um período de inatividade.
+   */
+
   async handleUserDisconnect(sessionId: string, userId: string) {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) return;
@@ -152,15 +169,11 @@ export class SessionService {
     const updateUser = sessionState.participants.get(userId);
 
     if (updateUser) {
-      const timeInSession = Math.floor(
-        (Date.now().valueOf() - updateUser.joinedAt.valueOf()) / 1000,
-      );
-
       try {
         await this.participantSessionRepository.update(
           updateUser.participantId,
           {
-            time: timeInSession,
+            time: updateUser.focusTime,
           },
         );
       } catch (error) {
@@ -174,7 +187,6 @@ export class SessionService {
     sessionState.participants.delete(userId);
     this.wsServer.to(sessionId).emit('user_left', { userId });
 
-    // Notifica todos sobre a nova lista de participantes
     this.broadcastParticipants(sessionId);
 
     if (sessionState.participants.size === 0) {
@@ -191,6 +203,10 @@ export class SessionService {
       }, POMODORO.TEMPO_INATIVIDADE);
     }
   }
+
+  /**
+   * Alterna o estado do timer entre "running" e "paused". Somente o anfitrião da sessão pode realizar esta ação.
+   */
 
   toggleTimer(sessionId: string, userId: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
@@ -211,6 +227,10 @@ export class SessionService {
     return;
   }
 
+  /**
+   * Força o início de um período de pausa, seja curta ou longa, reiniciando o tempo restante e atualizando a fase.
+   */
+
   forceBreak(sessionId: string, userId: string, type: 'short' | 'long') {
     const session = this.getSessionAndValidateHost(sessionId, userId);
     const pomodoro = session.pomodoro;
@@ -229,6 +249,10 @@ export class SessionService {
     return { success: true, status: 'break', timeLeft: pomodoro.timeLeft };
   }
 
+  /**
+   * Força o início de um período de estudo, reiniciando o ciclo e o tempo restante.
+   */
+
   forceStudy(sessionId: string, userId: string) {
     const session = this.getSessionAndValidateHost(sessionId, userId);
     const pomodoro = session.pomodoro;
@@ -239,6 +263,7 @@ export class SessionService {
     pomodoro.cycle = 0;
 
     this.broadcastTimerState(sessionId, pomodoro);
+    this.genAiQuestion(sessionId);
     return { success: true, status: 'paused', timeLeft: pomodoro.timeLeft };
   }
 
@@ -253,9 +278,20 @@ export class SessionService {
     return session;
   }
 
+  /**
+   * Lida com o tick do timer, atualizando o tempo restante e mudando de fase quando necessário.
+   */
   private handleTick(sessionId: string, pomodoro: PomodoroState) {
     pomodoro.timeLeft -= 1;
     this.broadcastTimerState(sessionId, pomodoro);
+
+    const session = this.activeSessions.get(sessionId);
+
+    if (pomodoro.phase === 'study' && session) {
+      session.participants.forEach((participant) => {
+        participant.focusTime += 1;
+      });
+    }
 
     if (pomodoro.timeLeft <= 0) {
       this.changePhase(sessionId, pomodoro);
@@ -284,11 +320,19 @@ export class SessionService {
     this.broadcastTimerState(sessionId, pomodoro);
   }
 
+  /**
+   * Pausa o timer, limpando o intervalo e atualizando o status para "paused".
+   */
+
   private pauseTimer(pomodoro: PomodoroState) {
     if (pomodoro.intervalId) clearInterval(pomodoro.intervalId);
     pomodoro.status = 'paused';
     pomodoro.intervalId = undefined;
   }
+
+  /**
+   * Envia o estado atualizado do timer para todos os participantes da sessão.
+   */
 
   private broadcastTimerState(sessionId: string, pomodoro: PomodoroState) {
     this.wsServer.to(sessionId).emit('timer_state', {
@@ -329,5 +373,125 @@ export class SessionService {
     );
 
     this.wsServer.to(sessionId).emit('participants_updated', participants);
+  }
+
+  addTheme(sessionId: string, userId: string, theme: string) {
+    const session = this.getSessionAndValidateHost(sessionId, userId);
+    if (!session.themes) {
+      session.themes = [];
+    }
+    session.themes.push(theme);
+    this.broadcastThemes(sessionId, session.themes);
+    return { success: true, message: 'Tema adicionado com sucesso' };
+  }
+
+  private broadcastThemes(sessionId: string, themes: string[]) {
+    this.wsServer.to(sessionId).emit('themes_updated', themes);
+  }
+
+  saveMessage(message: SessionMessage, sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    sessionState.messages.push(message);
+
+    if (sessionState.messages.length > 100) {
+      sessionState.messages.shift();
+    }
+  }
+
+  getThemes(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+    return sessionState.themes || [];
+  }
+
+  private async genAiQuestion(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    if (!sessionState.themes || sessionState.themes.length === 0) {
+      const message: SessionMessage = {
+        id: v7(),
+        userId: 'ai',
+        username: 'Luminha',
+        text: 'Ei, para testar seus conhecimentos preciso que me diga quais temas você quer estudar! Adicione um tema para eu gerar uma questão personalizada para você.',
+        title: '',
+        subtitle: '',
+        isAi: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      this.wsServer.to(sessionId).emit('receive_message', message);
+      return;
+    }
+
+    this.wsServer.to(sessionId).emit('ai_generating');
+    const ask = await this.aiService.ask(sessionState.themes || []);
+    this.wsServer.to(sessionId).emit('ai_generated');
+
+    sessionState.ai.lastAsk = ask;
+    this.broadcastAiAsk(sessionId);
+  }
+
+  private broadcastAiAsk(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) return;
+
+    const message: SessionMessage = {
+      id: v7(),
+      userId: 'ai',
+      username: 'Luminha',
+      text: sessionState.ai?.lastAsk?.question || '',
+      title: `${sessionState.ai.lastAsk?.title} - Dificuldade: ${sessionState.ai.lastAsk?.difficulty} `,
+      subtitle: `${sessionState.ai.lastAsk?.context}`,
+      isAi: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.wsServer.to(sessionId).emit('receive_message', message);
+  }
+
+  getAiLastQuestion(sessionId: string): AskDto {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+
+    if (!sessionState.ai.lastAsk) {
+      throw new NotFoundException('Nenhuma questão gerada');
+    }
+
+    return sessionState.ai.lastAsk;
+  }
+
+  async validate(sessionId: string) {
+    const sessionState = this.activeSessions.get(sessionId);
+    if (!sessionState) {
+      throw new NotFoundException('Sessão não encontrada');
+    }
+
+    if (!sessionState.ai.lastAsk) {
+      throw new NotFoundException('Nenhuma questão gerada para validar');
+    }
+
+    const messages = sessionState.messages.filter((m) => !m.isAi);
+    const validation = await this.aiService.validate(
+      sessionState.ai.lastAsk,
+      messages,
+    );
+
+    const { difficulty, title } = sessionState.ai.lastAsk;
+
+    const getRewards = await this.rewardService.getRewardByAnswerIaValidate(
+      validation.answerBy,
+      difficulty,
+      title,
+    );
+
+    this.wsServer.to(sessionId).emit('validation_result', validation);
+    console.log('Validation result:', validation);
   }
 }

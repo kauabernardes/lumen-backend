@@ -6,5 +6,6 @@ export class SessionParticipant extends Map<
     userId: string;
     username: string;
     joinedAt: Date;
+    focusTime: number;
   }
 > {}
