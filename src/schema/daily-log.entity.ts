@@ -21,9 +21,6 @@ export class DailyLog {
   @Column()
   userId: string;
 
-  @Column({ type: 'date' })
-  date: string;
-
   @Column()
   mood: string;
 

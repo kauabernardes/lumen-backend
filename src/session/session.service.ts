@@ -32,13 +32,12 @@ export class SessionService {
     private readonly sessionRepository: Repository<Session>,
     @InjectRepository(ParticipantSession)
     private readonly participantSessionRepository: Repository<ParticipantSession>,
-    
+
     private readonly userService: UserService,
-    
+
     private readonly aiService: AiService,
 
     private readonly rewardService: RewardService,
-
   ) {}
 
   injectWebSocketServer(server: Server) {
@@ -124,7 +123,7 @@ export class SessionService {
       const newParticipant = this.participantSessionRepository.create({
         sessionId: sessionId,
         userId: userId,
-        time: 0,
+        createdAt: new Date(),
         id: sessionParticipantId,
       });
       await this.participantSessionRepository.save(newParticipant);
@@ -138,6 +137,7 @@ export class SessionService {
       userId: userId,
       username: user.username,
       joinedAt: new Date(),
+      focusTime: 0,
     });
     this.wsServer
       .to(sessionId)
@@ -169,15 +169,11 @@ export class SessionService {
     const updateUser = sessionState.participants.get(userId);
 
     if (updateUser) {
-      const timeInSession = Math.floor(
-        (Date.now().valueOf() - updateUser.joinedAt.valueOf()) / 1000,
-      );
-
       try {
         await this.participantSessionRepository.update(
           updateUser.participantId,
           {
-            time: timeInSession,
+            time: updateUser.focusTime,
           },
         );
       } catch (error) {
@@ -288,6 +284,14 @@ export class SessionService {
   private handleTick(sessionId: string, pomodoro: PomodoroState) {
     pomodoro.timeLeft -= 1;
     this.broadcastTimerState(sessionId, pomodoro);
+
+    const session = this.activeSessions.get(sessionId);
+
+    if (pomodoro.phase === 'study' && session) {
+      session.participants.forEach((participant) => {
+        participant.focusTime += 1;
+      });
+    }
 
     if (pomodoro.timeLeft <= 0) {
       this.changePhase(sessionId, pomodoro);
@@ -409,19 +413,19 @@ export class SessionService {
     if (!sessionState) return;
 
     if (!sessionState.themes || sessionState.themes.length === 0) {
-          const message: SessionMessage = {
-            id: v7(),
-            userId: 'ai',
-            username: 'Luminha',
-            text: 'Ei, para testar seus conhecimentos preciso que me diga quais temas você quer estudar! Adicione um tema para eu gerar uma questão personalizada para você.',
-            title: "",
-            subtitle: "",
-            isAi: true,
-            timestamp: new Date().toISOString(),
-          };
+      const message: SessionMessage = {
+        id: v7(),
+        userId: 'ai',
+        username: 'Luminha',
+        text: 'Ei, para testar seus conhecimentos preciso que me diga quais temas você quer estudar! Adicione um tema para eu gerar uma questão personalizada para você.',
+        title: '',
+        subtitle: '',
+        isAi: true,
+        timestamp: new Date().toISOString(),
+      };
 
-    this.wsServer.to(sessionId).emit('receive_message', message);
-          return;
+      this.wsServer.to(sessionId).emit('receive_message', message);
+      return;
     }
 
     this.wsServer.to(sessionId).emit('ai_generating');
@@ -450,7 +454,7 @@ export class SessionService {
     this.wsServer.to(sessionId).emit('receive_message', message);
   }
 
-  getAiLastQuestion(sessionId: string) : AskDto {
+  getAiLastQuestion(sessionId: string): AskDto {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) {
       throw new NotFoundException('Sessão não encontrada');
@@ -461,8 +465,6 @@ export class SessionService {
     }
 
     return sessionState.ai.lastAsk;
-
-
   }
 
   async validate(sessionId: string) {
@@ -475,19 +477,21 @@ export class SessionService {
       throw new NotFoundException('Nenhuma questão gerada para validar');
     }
 
-   
-      const messages = sessionState.messages.filter((m) => !m.isAi);
-      const validation = await this.aiService.validate(
-        sessionState.ai.lastAsk,
-        messages,
-      );
+    const messages = sessionState.messages.filter((m) => !m.isAi);
+    const validation = await this.aiService.validate(
+      sessionState.ai.lastAsk,
+      messages,
+    );
 
-      const { difficulty, title} = sessionState.ai.lastAsk;
+    const { difficulty, title } = sessionState.ai.lastAsk;
 
-      const getRewards = await this.rewardService.getRewardByAnswerIaValidate(validation.answerBy, difficulty, title);
-      
-      this.wsServer.to(sessionId).emit('validation_result', validation);
-      console.log('Validation result:', validation);
+    const getRewards = await this.rewardService.getRewardByAnswerIaValidate(
+      validation.answerBy,
+      difficulty,
+      title,
+    );
 
+    this.wsServer.to(sessionId).emit('validation_result', validation);
+    console.log('Validation result:', validation);
   }
 }

@@ -38,7 +38,15 @@ export class CommunityService {
         description: payload.description || '',
         authorId: userId,
       });
-      await this.communityRepository.save(community);
+
+      const savedCommunity = await this.communityRepository.save(community);
+
+      const member = this.memberRepository.create({
+        userId,
+        communityId: savedCommunity.id,
+      });
+
+      await this.memberRepository.save(member);
 
       return {
         message: 'Comunidade criada com sucesso',
@@ -209,16 +217,16 @@ export class CommunityService {
 
       const [posts, total] = await Promise.all([
         queryBuilder.getMany(),
-        this.postRepository.count({ where: { communityId, parentId: IsNull() } }),
+        this.postRepository.count({
+          where: { communityId, parentId: IsNull() },
+        }),
       ]);
 
- 
       const commentsCount = await Promise.all(
         posts.map((post) =>
           this.postRepository.count({ where: { parentId: post.id } }),
         ),
-      ); 
-    
+      );
 
       const postsWithLikedStatus = posts.map((post: any) => ({
         ...post,
