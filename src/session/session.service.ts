@@ -468,6 +468,8 @@ export class SessionService {
   }
 
   async validate(sessionId: string) {
+    this.wsServer.to(sessionId).emit('ai_generating');
+
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) {
       throw new NotFoundException('Sessão não encontrada');
@@ -490,8 +492,23 @@ export class SessionService {
       difficulty,
       title,
     );
+    this.wsServer.to(sessionId).emit('ai_generated');
+
+    sessionState.ai.lastAsk = null;
 
     this.wsServer.to(sessionId).emit('validation_result', validation);
+    const message: SessionMessage = {
+      id: v7(),
+      userId: 'ai',
+      username: 'Luminha',
+      text: 'Já vou fazer uma nova pergunta de acordo com os temas que você tem estudado nessa sessão!',
+      isAi: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.genAiQuestion(sessionId);
+
+    this.wsServer.to(sessionId).emit('receive_message', message);
     console.log('Validation result:', validation);
   }
 }
