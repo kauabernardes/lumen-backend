@@ -26,8 +26,13 @@ export class CommunityController {
 
   @UseGuards(AuthGuard)
   @Get('in')
-  async getIn(@Request() req) {
-    return this.communityService.getIn(req.user.sub);
+  async getIn(@Request() req, @Query() pagination: PaginationDto) {
+    return this.communityService.getIn(req.user.sub, pagination);
+  }
+  @UseGuards(AuthGuard)
+  @Get('not-in')
+  async getNotIn(@Request() req, @Query() pagination: PaginationDto) {
+    return this.communityService.getNotIn(req.user.sub, pagination);
   }
 
   @UseGuards(AuthGuard)
