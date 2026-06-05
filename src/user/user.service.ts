@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -31,7 +28,7 @@ export class UserService {
       },
     });
   }
-
+  /*
   async getUserProfile(
     profileUserId: string,
     loggedUserId: string,
@@ -69,13 +66,13 @@ export class UserService {
     const profileCommunityIds =
       user.communities.map(
         (community) =>
-          community.community.id,
+          community.id,
       );
 
     const loggedCommunityIds =
       loggedUser.communities.map(
         (community) =>
-          community.community.id,
+          community.id,
       );
 
     const commonCommunityIds =
@@ -88,7 +85,7 @@ export class UserService {
     for (const member of user.communities) {
       if (
         commonCommunityIds.includes(
-          member.community.id,
+          member.id,
         )
       ) {
         const posts =
@@ -102,23 +99,19 @@ export class UserService {
       username: user.username,
 
       email: user.email,
-
-      createdAt: user.createdAt,
-
       communitiesCount:
         user.communities.length,
 
       communities: user.communities.map(
         (member) => ({
-          id: member.community.id,
+          id: member.,
           name: member.community.name,
         }),
       ),
 
       commonPosts,
     };
-  }
-}
+  } */
 
   async getMonthlyStudyChart(userId: string) {
     const now = new Date();

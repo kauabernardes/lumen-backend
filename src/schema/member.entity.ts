@@ -32,5 +32,5 @@ export class Member {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'communityId' })
-  community!: Community;
+  community: Community;
 }
