@@ -38,7 +38,15 @@ export class CommunityService {
         description: payload.description || '',
         authorId: userId,
       });
-      await this.communityRepository.save(community);
+
+      const savedCommunity = await this.communityRepository.save(community);
+
+      const member = this.memberRepository.create({
+        userId,
+        communityId: savedCommunity.id,
+      });
+
+      await this.memberRepository.save(member);
 
       return {
         message: 'Comunidade criada com sucesso',
@@ -96,20 +104,10 @@ export class CommunityService {
             communityRepo.count(),
           ]);
 
-          // In TypeORM, we have to manually filter/format if we want complex 'where' in relations like Prisma
-          // or use QueryBuilder for more efficiency.
-          // Here we simulate the Prisma 'include' with 'where' in members.
-
-          // For simplicity and to match Prisma behavior exactly for the user,
-          // we'll fetch members for each community and filter locally,
-          // OR better, use a QueryBuilder to do it in one go.
-
-          // Let's try a QueryBuilder approach for better performance.
           return [communitiesList, totalCount];
         },
       );
 
-      // Re-implementing with QueryBuilder to handle the specific Prisma 'include' logic
       const queryBuilder = this.communityRepository
         .createQueryBuilder('community')
         .leftJoinAndSelect('community.author', 'author')
@@ -119,7 +117,7 @@ export class CommunityService {
           'members.userId = :userId',
           { userId },
         )
-        .loadRelationCountAndMap('community.membersCount', 'community.members') // Custom field might be needed in Entity
+        .loadRelationCountAndMap('community.membersCount', 'community.members')
         .skip(skip)
         .take(limit)
         .orderBy('community.createdAt', 'DESC');
@@ -209,16 +207,16 @@ export class CommunityService {
 
       const [posts, total] = await Promise.all([
         queryBuilder.getMany(),
-        this.postRepository.count({ where: { communityId, parentId: IsNull() } }),
+        this.postRepository.count({
+          where: { communityId, parentId: IsNull() },
+        }),
       ]);
 
- 
       const commentsCount = await Promise.all(
         posts.map((post) =>
           this.postRepository.count({ where: { parentId: post.id } }),
         ),
-      ); 
-    
+      );
 
       const postsWithLikedStatus = posts.map((post: any) => ({
         ...post,
@@ -241,22 +239,76 @@ export class CommunityService {
     }
   }
 
-  async getIn(userId: string) {
+  async getIn(userId: string, pagination: PaginationDto) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
     try {
       const queryBuilder = this.communityRepository
         .createQueryBuilder('community')
         .innerJoin('community.members', 'members', 'members.userId = :userId', {
           userId,
         })
+        .loadRelationCountAndMap('community.membersCount', 'community.members')
+        .skip(skip)
+        .take(limit);
 
-        .loadRelationCountAndMap('community.membersCount', 'community.members');
+      // Usando getManyAndCount para pegar os dados e o total real
+      const [communities, total] = await queryBuilder.getManyAndCount();
 
-      const communities = await queryBuilder.getMany();
+      // Calculando a última página baseado no total e no limite
+      const lastPage = Math.ceil(total / limit) || 1;
 
-      return communities.map((community: any) => ({
-        ...community,
-        isMember: true,
-      }));
+      return {
+        data: communities.map((community: any) => ({
+          ...community,
+          isMember: true,
+        })),
+        meta: {
+          total,
+          page,
+          lastPage,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async getNotIn(userId: string, pagination: PaginationDto) {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    try {
+      const queryBuilder = this.communityRepository
+        .createQueryBuilder('community')
+        // Tenta fazer o join com o registro do usuário específico
+        .leftJoin('community.members', 'members', 'members.userId = :userId', {
+          userId,
+        })
+        // Filtra apenas as comunidades onde o join anterior resultou em null (usuário não está)
+        .where('members.userId IS NULL')
+        .loadRelationCountAndMap('community.membersCount', 'community.members')
+        .skip(skip)
+        .take(limit);
+
+      const [communities, total] = await queryBuilder.getManyAndCount();
+
+      const lastPage = Math.ceil(total / limit) || 1;
+
+      return {
+        data: communities.map((community: any) => ({
+          ...community,
+          isMember: false, // Alterado para false
+        })),
+        meta: {
+          total,
+          page,
+          lastPage,
+        },
+      };
     } catch (error) {
       throw error;
     }

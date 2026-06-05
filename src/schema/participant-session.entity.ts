@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   Index,
+  CreateDateColumn,
 } from 'typeorm';
 import { Session } from './session.entity';
 import { User } from './user.entity';
@@ -22,8 +23,11 @@ export class ParticipantSession {
   @Column({ type: 'uuid' })
   userId!: string;
 
-  @Column({ type: 'int', default: 0 })
-  time!: number;
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
+
+  @Column({ type: 'bigint', nullable: false, default: 0 })
+  time: number;
 
   @ManyToOne(() => Session, (session) => session.participants, {
     onDelete: 'CASCADE',

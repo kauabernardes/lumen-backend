@@ -6,6 +6,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
+import { Controller, Get, Req, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 
@@ -34,5 +35,13 @@ export class UserController {
       req.user.id,
       req.user.id,
     );
+  }
+}
+  
+
+  @Get('session/stats')
+  @UseGuards(AuthGuard)
+  getMonthlyChart(@Req() req) {
+    return this.userService.getMonthlyStudyChart(req.user.sub);
   }
 }

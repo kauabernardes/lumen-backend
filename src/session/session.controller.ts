@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { AddThemeDTO } from './dto/add-theme.dto';
 
 @Controller('session')
 @UseGuards(AuthGuard)
@@ -46,5 +47,30 @@ export class SessionController {
   @Get(':sessionId/participants')
   async getParticipants(@Param('sessionId') sessionId: string) {
     return await this.sessionService.getParticipants(sessionId);
+  }
+
+  @Post(':sessionId/add/theme')
+  async addTheme(
+    @Param('sessionId') sessionId: string,
+    @Body() body: AddThemeDTO,
+    @Req() req: any,
+  ) {
+    const userId = req.user.sub;
+    return this.sessionService.addTheme(sessionId, userId, body.theme);
+  }
+
+  @Get(':sessionId/themes')
+  async getThemes(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.getThemes(sessionId);
+  }
+
+  @Get(':sessionId/ai/question')
+  async genAiQuestion(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.getAiLastQuestion(sessionId);
+  }
+
+  @Post(':sessionId/ai/validate')
+  async validateAiQuestion(@Param('sessionId') sessionId: string) {
+    return await this.sessionService.validate(sessionId);
   }
 }

@@ -1,36 +1,49 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
+import { AnswerByDto } from 'src/ai/dto/answer-by.dto';
 import { Reward } from 'src/schema/reward.entity';
-import { Earn } from 'src/schema/earn.entity';
+import { UserReward } from 'src/schema/user-reward.entity';
 
 @Injectable()
 export class RewardService {
-  constructor(
-    @InjectRepository(Reward)
-    private readonly rewardRepository: Repository<Reward>,
-  ) {}
 
-  async getRewardsByUser(userId: string) {
-    try {
-      const allRewards = await this.rewardRepository.find({
-        relations: ['earns'],
-      });
+    constructor(
+        @InjectDataSource()
+        private readonly dataSource: DataSource
+    ) {}
 
-      const formattedRewards = allRewards.map((reward) => {
-        const userEarns = reward.earns.filter((earn) => earn.userId === userId);
-        const disponivel = userEarns.length === 0;
-        const { earns, ...rewardData } = reward;
+    async getRewardByAnswerIaValidate(answers: AnswerByDto[], difficulty: string, title: string): Promise<void> {
+        
+       
+        await this.dataSource.transaction(async (transactionalEntityManager) => {
+            
+        
+            const reward = transactionalEntityManager.create(Reward, {
+                title: title,
+                difficulty: difficulty
+            });
+            const savedReward = await transactionalEntityManager.save(reward);
 
-        return {
-          ...rewardData,
-          available: disponivel,
-        };
-      });
+            
+            const userRewards = answers.map(answer => {
+                return transactionalEntityManager.create(UserReward, {
+                    reward: { id: savedReward.id },
+                    user: { id: answer.userId },
+                    isCorrect: answer.isCorrect
+                });
+            });
 
-      return formattedRewards;
-    } catch (error) {
-      throw error;
+            
+            console.log('Saved Reward:', savedReward);
+            
+            
+            
+            const savedUserRewards = await transactionalEntityManager.save(userRewards);
+            console.log('User Rewards to be saved:', savedUserRewards);
+            
+          
+        });
+      
     }
-  }
 }

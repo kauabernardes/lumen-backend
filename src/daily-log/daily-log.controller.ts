@@ -22,7 +22,7 @@ export class DailyLogController {
 
   @Get('summary')
   async getSummary(@Req() req) {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     return await this.service.getSummary(userId);
   }
 }

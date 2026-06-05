@@ -11,11 +11,11 @@ import { Community } from 'src/schema/community.entity';
 import { Member } from 'src/schema/member.entity';
 import { Like } from 'src/schema/like.entity';
 import { CreateComment } from './dto/create-comment.dto';
+import { PaginationDto } from 'src/util/dto/pagination.dto';
+import { PaginatedPostsResponseDto } from './dto/post-response.dto';
 
 @Injectable()
 export class PostService {
- 
-
   constructor(
     @InjectRepository(Post)
     private readonly postRepository: Repository<Post>,
@@ -94,29 +94,23 @@ export class PostService {
     return { liked, totalLikes };
   }
 
-async getPost(postId: string, userId: string) {
+  async getPost(postId: string, userId: string) {
     const postQuery = this.postRepository
       .createQueryBuilder('post')
-      .select([
-        'post.id',
-        'post.content',
-        'post.createdAt',
-        'post.parentId',
-      ])
+      .select(['post.id', 'post.content', 'post.createdAt', 'post.parentId'])
       .leftJoin('post.user', 'user')
       .addSelect(['user.id', 'user.username'])
       .leftJoin('post.community', 'community')
       .addSelect(['community.id', 'community.name'])
-      
-      // 1. Join com a relação do post pai (Verifique se o nome na sua Entidade é 'parent' ou 'parentId')
-      .leftJoin('post.parent', 'parentPost') 
+
+      .leftJoin('post.parent', 'parentPost')
       .addSelect(['parentPost.id', 'parentPost.content'])
-      
-      // 2. NOVO: Join com o usuário do post pai
       .leftJoin('parentPost.user', 'parentUser')
       .addSelect(['parentUser.id', 'parentUser.username'])
 
-      .leftJoinAndSelect('post.likes', 'likes', 'likes.userId = :userId', { userId })
+      .leftJoinAndSelect('post.likes', 'likes', 'likes.userId = :userId', {
+        userId,
+      })
       .loadRelationCountAndMap('post.likesCount', 'post.likes')
       .where('post.id = :postId', { postId });
 
@@ -128,14 +122,12 @@ async getPost(postId: string, userId: string) {
 
     const commentsQuery = this.postRepository
       .createQueryBuilder('comment')
-      .select([
-        'comment.id',
-        'comment.content',
-        'comment.createdAt'
-      ])
+      .select(['comment.id', 'comment.content', 'comment.createdAt'])
       .leftJoin('comment.user', 'user')
       .addSelect(['user.id', 'user.username'])
-      .leftJoinAndSelect('comment.likes', 'likes', 'likes.userId = :userId', { userId })
+      .leftJoinAndSelect('comment.likes', 'likes', 'likes.userId = :userId', {
+        userId,
+      })
       .loadRelationCountAndMap('comment.likesCount', 'comment.likes')
       .where('comment.parentId = :postId', { postId })
       .orderBy('comment.createdAt', 'ASC');
@@ -144,31 +136,31 @@ async getPost(postId: string, userId: string) {
 
     const commentsRepliesCount = await Promise.all(
       comments.map((comment) =>
-        this.postRepository.count({ where: { parentId: comment.id } })
-      )
+        this.postRepository.count({ where: { parentId: comment.id } }),
+      ),
     );
 
-    const formattedComments = comments.map((comment, index) => { 
+    const formattedComments = comments.map((comment, index) => {
       return {
         ...comment,
         isLiked: comment.likes && comment.likes.length > 0,
         likes: undefined,
         likesCount: comment.likesCount || 0,
-        commentsCount: commentsRepliesCount[index] || 0, 
-      }
+        commentsCount: commentsRepliesCount[index] || 0,
+      };
     });
-  
+
     return {
       ...post,
       isLiked: post.likes && post.likes.length > 0,
       likes: undefined,
       likesCount: post.likesCount || 0,
-      commentsCount: formattedComments.length, 
+      commentsCount: formattedComments.length,
       comments: formattedComments,
     };
-}
+  }
 
-   async createComment(postId: string, content: string, sub: any) {
+  async createComment(postId: string, content: string, sub: any) {
     const post = await this.postRepository.findOne({
       where: { id: postId },
     });
@@ -185,5 +177,62 @@ async getPost(postId: string, userId: string) {
     });
     await this.postRepository.save(comment);
     return comment;
+  }
+
+  async getRecommendedPosts(
+    userId: string,
+    pagination: PaginationDto,
+  ): Promise<PaginatedPostsResponseDto> {
+    const page = Number(pagination.page) || 1;
+    const limit = Number(pagination.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    try {
+      const queryBuilder = this.postRepository
+        .createQueryBuilder('post')
+        .innerJoin(
+          Member,
+          'member',
+          'member.communityId = post.communityId AND member.userId = :userId',
+          { userId },
+        )
+        .leftJoinAndSelect('post.user', 'user')
+        .leftJoinAndSelect('post.community', 'community')
+        .leftJoinAndSelect('post.likes', 'likes', 'likes.userId = :userId', {
+          userId,
+        })
+        .loadRelationCountAndMap('post.likesCount', 'post.likes')
+        .where('post.parentId IS NULL')
+        .orderBy('post.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit);
+
+      const [posts, total] = await queryBuilder.getManyAndCount();
+
+      const commentsCount = await Promise.all(
+        posts.map((post) =>
+          this.postRepository.count({ where: { parentId: post.id } }),
+        ),
+      );
+
+      const postsWithLikedStatus = posts.map((post: any, index: number) => ({
+        ...post,
+        isLiked: post.likes && post.likes.length > 0,
+        likes: undefined,
+        likesCount: post.likesCount || 0,
+        commentsCount: commentsCount[index],
+      }));
+
+      return {
+        data: postsWithLikedStatus,
+        meta: {
+          total,
+          page,
+          lastPage: Math.ceil(total / limit) || 1,
+        },
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }

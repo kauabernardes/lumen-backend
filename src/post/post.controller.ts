@@ -1,8 +1,19 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { PostService } from './post.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CreateComment } from './dto/create-comment.dto';
+import { PaginationDto } from 'src/util/dto/pagination.dto';
 
 @UseGuards(AuthGuard)
 @Controller('posts')
@@ -15,8 +26,12 @@ export class PostController {
     return this.postService.createPost(body, req.user.sub);
   }
 
-  @Post(':id/like')
+  @Get('recommended')
+  getRecommendedPosts(@Req() req, @Query() pagination: PaginationDto) {
+    return this.postService.getRecommendedPosts(req.user.sub, pagination);
+  }
 
+  @Post(':id/like')
   toggleLike(@Param('id', new ParseUUIDPipe()) postId: string, @Req() req) {
     console.log(req.user.sub);
     return this.postService.toggleLike(postId, req.user.sub);
@@ -28,8 +43,11 @@ export class PostController {
   }
 
   @Post(':id/comment')
-  createComment(@Param('id', new ParseUUIDPipe()) postId: string, @Body() body: CreateComment, @Req() req) {
+  createComment(
+    @Param('id', new ParseUUIDPipe()) postId: string,
+    @Body() body: CreateComment,
+    @Req() req,
+  ) {
     return this.postService.createComment(postId, body.content, req.user.sub);
   }
-
 }
