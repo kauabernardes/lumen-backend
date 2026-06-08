@@ -98,6 +98,8 @@ export class AuthService {
       {
         sub: user!.id,
         username: user!.username,
+        profileImage: user!.profileImage          ? `uploads/${user!.profileImage}`
+          : null,
       },
       'segredo',
       { expiresIn: '1h' },
