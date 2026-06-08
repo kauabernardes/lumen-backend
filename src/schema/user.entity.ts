@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToMany,
+} from 'typeorm';
 import { ParticipantSession } from './participant-session.entity';
 import { Session } from './session.entity';
 import { Member } from './member.entity';
@@ -19,8 +25,11 @@ export class User {
   @Column({ type: 'varchar', length: 50, unique: true })
   username: string;
 
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'varchar', length: 255, nullable: false })
   password: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  profileImage?: string;
 
   @OneToMany(
     () => ParticipantSession,
@@ -43,5 +52,6 @@ export class User {
   @OneToMany(() => DailyLog, (dailyLog) => dailyLog.user)
   dailyLogs: DailyLog[];
 
-@OneToMany(() => UserReward, (userReward) => userReward.user) userRewards: UserReward[];
+  @OneToMany(() => UserReward, (userReward) => userReward.user)
+  userRewards: UserReward[];
 }

@@ -124,7 +124,7 @@ export class PostService {
       .createQueryBuilder('comment')
       .select(['comment.id', 'comment.content', 'comment.createdAt'])
       .leftJoin('comment.user', 'user')
-      .addSelect(['user.id', 'user.username'])
+      .addSelect(['user.id', 'user.username', 'user.profileImage'])
       .leftJoinAndSelect('comment.likes', 'likes', 'likes.userId = :userId', {
         userId,
       })

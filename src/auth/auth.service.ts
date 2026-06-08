@@ -109,6 +109,9 @@ export class AuthService {
         id: user!.id,
         email: user!.email,
         username: user!.username,
+        profileImage: user!.profileImage
+          ? `uploads/${user!.profileImage}`
+          : null,
       },
     };
   }

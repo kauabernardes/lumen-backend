@@ -48,7 +48,7 @@ import { UserReward } from './schema/user-reward.entity';
           DailyLog,
         ],
         logging: true,
-        synchronize: false,
+        synchronize: true,
         ssl: true,
         extra: {
           ssl: {
