@@ -99,7 +99,7 @@ export class PostService {
       .createQueryBuilder('post')
       .select(['post.id', 'post.content', 'post.createdAt', 'post.parentId'])
       .leftJoin('post.user', 'user')
-      .addSelect(['user.id', 'user.username'])
+      .addSelect(['user.id', 'user.username', 'user.profileImage'])
       .leftJoin('post.community', 'community')
       .addSelect(['community.id', 'community.name'])
 
