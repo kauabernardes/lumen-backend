@@ -17,4 +17,14 @@ export class AuthController {
     console.log(`[Auth] Login attempt for ${body.identifier} from IP ${req.ip}`);
     return this.authService.login(body.identifier, body.password, req.ip);
   }
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
+  }
 }
+
