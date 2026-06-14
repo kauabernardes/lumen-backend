@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { RewardService } from './reward.service';
+import { RewardController } from './reward.controller'; 
 
 import { Reward } from 'src/schema/reward.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -9,7 +10,10 @@ import { UserReward } from 'src/schema/user-reward.entity';
   imports: [
     TypeOrmModule.forFeature([Reward, UserReward])
   ],
+  controllers: [RewardController], 
   exports: [RewardService],
   providers: [RewardService]
 })
 export class RewardModule {}
+
+

@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
-  ManyToMany,
 } from 'typeorm';
 import { ParticipantSession } from './participant-session.entity';
 import { Session } from './session.entity';
@@ -11,7 +10,6 @@ import { Member } from './member.entity';
 import { Community } from './community.entity';
 import { Post } from './post.entity';
 import { DailyLog } from './daily-log.entity';
-import { Reward } from './reward.entity';
 import { UserReward } from './user-reward.entity';
 
 @Entity()
@@ -30,6 +28,13 @@ export class User {
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   profileImage?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  resetPasswordToken?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  resetPasswordExpires?: Date;
+  
 
   @OneToMany(
     () => ParticipantSession,
