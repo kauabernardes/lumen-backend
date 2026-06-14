@@ -10,7 +10,7 @@ import { Member } from 'src/schema/member.entity';
 import { Post } from 'src/schema/post.entity';
 import { Create } from './dto/create.dto';
 import { PaginationDto } from 'src/util/dto/pagination.dto';
-import { DataSource, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, In, IsNull, Not, Repository } from 'typeorm';
 
 @Injectable()
 export class CommunityService {
@@ -239,41 +239,74 @@ export class CommunityService {
     }
   }
 
-  async getIn(userId: string, pagination: PaginationDto) {
+  async getIn(
+    reqUser: string,
+    pagination: PaginationDto,
+    userId: string | null = null,
+  ) {
     const page = Number(pagination.page) || 1;
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
 
-    try {
-      const queryBuilder = this.communityRepository
-        .createQueryBuilder('community')
-        .innerJoin('community.members', 'members', 'members.userId = :userId', {
-          userId,
-        })
-        .loadRelationCountAndMap('community.membersCount', 'community.members')
-        .skip(skip)
-        .take(limit);
+    const targetUserId = userId || reqUser;
 
-      // Usando getManyAndCount para pegar os dados e o total real
-      const [communities, total] = await queryBuilder.getManyAndCount();
-
-      // Calculando a última página baseado no total e no limite
-      const lastPage = Math.ceil(total / limit) || 1;
-
-      return {
-        data: communities.map((community: any) => ({
-          ...community,
-          isMember: true,
-        })),
-        meta: {
-          total,
-          page,
-          lastPage,
+    const queryBuilder = this.communityRepository
+      .createQueryBuilder('community')
+      .innerJoin(
+        'community.members',
+        'members',
+        'members.userId = :targetUserId',
+        {
+          targetUserId,
         },
+      )
+      .loadRelationCountAndMap('community.membersCount', 'community.members')
+      .skip(skip)
+      .take(limit);
+
+    const [communities, total] = await queryBuilder.getManyAndCount();
+    const lastPage = Math.ceil(total / limit) || 1;
+
+    if (communities.length === 0) {
+      return {
+        data: [],
+        meta: { total, page, lastPage },
       };
-    } catch (error) {
-      throw error;
     }
+
+    let memberStatus: Member[] = [];
+
+    if (userId && userId !== reqUser) {
+      const communityIds = communities.map((community) => community.id);
+
+      memberStatus = await this.memberRepository.find({
+        where: {
+          userId: reqUser,
+          communityId: In(communityIds),
+        },
+      });
+    }
+
+    return {
+      data: communities.map((community) => {
+        const isMember =
+          !userId || userId === reqUser
+            ? true
+            : memberStatus.some(
+                (member) => member.communityId === community.id,
+              );
+
+        return {
+          ...community,
+          isMember,
+        };
+      }),
+      meta: {
+        total,
+        page,
+        lastPage,
+      },
+    };
   }
 
   async getNotIn(userId: string, pagination: PaginationDto) {
@@ -284,11 +317,11 @@ export class CommunityService {
     try {
       const queryBuilder = this.communityRepository
         .createQueryBuilder('community')
-        // Tenta fazer o join com o registro do usuário específico
+
         .leftJoin('community.members', 'members', 'members.userId = :userId', {
           userId,
         })
-        // Filtra apenas as comunidades onde o join anterior resultou em null (usuário não está)
+
         .where('members.userId IS NULL')
         .loadRelationCountAndMap('community.membersCount', 'community.members')
         .skip(skip)
@@ -301,7 +334,7 @@ export class CommunityService {
       return {
         data: communities.map((community: any) => ({
           ...community,
-          isMember: false, // Alterado para false
+          isMember: false,
         })),
         meta: {
           total,
