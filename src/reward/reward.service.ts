@@ -7,43 +7,49 @@ import { UserReward } from 'src/schema/user-reward.entity';
 
 @Injectable()
 export class RewardService {
+  constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+  ) {}
 
-    constructor(
-        @InjectDataSource()
-        private readonly dataSource: DataSource
-    ) {}
+  async getRewardByAnswerIaValidate(
+    answers: AnswerByDto[],
+    difficulty: string,
+    title: string,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (transactionalEntityManager) => {
+      const reward = transactionalEntityManager.create(Reward, {
+        title: title,
+        difficulty: difficulty,
+      });
+      const savedReward = await transactionalEntityManager.save(reward);
 
-    async getRewardByAnswerIaValidate(answers: AnswerByDto[], difficulty: string, title: string): Promise<void> {
-        
-       
-        await this.dataSource.transaction(async (transactionalEntityManager) => {
-            
-        
-            const reward = transactionalEntityManager.create(Reward, {
-                title: title,
-                difficulty: difficulty
-            });
-            const savedReward = await transactionalEntityManager.save(reward);
-
-            
-            const userRewards = answers.map(answer => {
-                return transactionalEntityManager.create(UserReward, {
-                    reward: { id: savedReward.id },
-                    user: { id: answer.userId },
-                    isCorrect: answer.isCorrect
-                });
-            });
-
-            
-            console.log('Saved Reward:', savedReward);
-            
-            
-            
-            const savedUserRewards = await transactionalEntityManager.save(userRewards);
-            console.log('User Rewards to be saved:', savedUserRewards);
-            
-          
+      const userRewards = answers.map((answer) => {
+        return transactionalEntityManager.create(UserReward, {
+          reward: { id: savedReward.id },
+          user: { id: answer.userId },
+          isCorrect: answer.isCorrect,
         });
-      
-    }
+      });
+
+      console.log('Saved Reward:', savedReward);
+      const savedUserRewards =
+        await transactionalEntityManager.save(userRewards);
+      console.log('User Rewards to be saved:', savedUserRewards);
+    });
+  }
+
+  async getUserRewards(userId: string) {
+    const allRewards = await this.dataSource.getRepository(Reward).find({
+      where: { userRewards: { user: { id: userId }, isCorrect: true } },
+      relations: ['userRewards'],
+    });
+
+    return allRewards.map((reward) => ({
+      rewardId: reward.id,
+      title: reward.title,
+      difficulty: reward.difficulty,
+      createdAt: reward.createdAt,
+    }));
+  }
 }

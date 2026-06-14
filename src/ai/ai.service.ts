@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { GoogleGenAI, Type } from '@google/genai';
-import { AskDto } from './dto/ask.dto';
 import { SessionMessage } from 'src/session/interface/session-message';
 import { ValidateResponseDto } from './dto/validate-response.dto';
+import { AskDto } from './dto/ask.dto';
+import { AgendaEvent } from 'src/schema/agenda.enity';
+import { response } from 'express';
 
 @Injectable()
 export class AiService {
@@ -13,7 +15,8 @@ export class AiService {
       apiKey: process.env.GEMINI_API_KEY,
     });
   }
-async ask(temas: string[]): Promise<AskDto> {
+
+  async ask(temas: string[]): Promise<AskDto> {
     console.log('Generating question with themes:', temas);
     try {
       const config = {
@@ -24,15 +27,18 @@ async ask(temas: string[]): Promise<AskDto> {
           properties: {
             title: {
               type: Type.STRING,
-              description: 'Um título curto e chamativo para o desafio. No máximo 5 palavras.',
+              description:
+                'Um título curto e chamativo para o desafio. No máximo 5 palavras.',
             },
             context: {
               type: Type.STRING,
-              description: 'Contexto da pergunta. DEVE VARIAR: pode ser nulo/vazio, uma frase curtíssima de introdução, ou um texto base maior (se for uma questão estilo vestibular).',
+              description:
+                'Contexto da pergunta. DEVE VARIAR: pode ser nulo/vazio, uma frase curtíssima de introdução, ou um texto base maior (se for uma questão estilo vestibular).',
             },
             question: {
               type: Type.STRING,
-              description: 'A pergunta direta que os alunos devem debater e responder.',
+              description:
+                'A pergunta direta que os alunos devem debater e responder.',
             },
             difficulty: {
               type: Type.STRING,
@@ -65,7 +71,11 @@ async ask(temas: string[]): Promise<AskDto> {
         contents: [
           {
             role: 'user',
-            parts: [{ text: 'Gere a questão para a rodada atual de estudos variando o formato em relação às anteriores.' }],
+            parts: [
+              {
+                text: 'Gere a questão para a rodada atual de estudos variando o formato em relação às anteriores.',
+              },
+            ],
           },
         ],
       });
@@ -82,8 +92,11 @@ async ask(temas: string[]): Promise<AskDto> {
     }
   }
 
-  async validate(ask: AskDto, messages: SessionMessage[]) : Promise<ValidateResponseDto>{
-    try { 
+  async validate(
+    ask: AskDto,
+    messages: SessionMessage[],
+  ): Promise<ValidateResponseDto> {
+    try {
       const config = {
         responseMimeType: 'application/json',
         responseSchema: {
@@ -116,8 +129,10 @@ async ask(temas: string[]): Promise<AskDto> {
               description: 'Feedback geral sobre as respostas dos usuários',
             },
           },
-        }, 
-        'systemInstruction': [{'text': `Você atua como 'Luminha', a assistente de estudos inteligente e acolhedora da plataforma Lumen. Sua missão é avaliar debates acadêmicos ocorridos no chat durante sessões Pomodoro em grupo.
+        },
+        systemInstruction: [
+          {
+            text: `Você atua como 'Luminha', a assistente de estudos inteligente e acolhedora da plataforma Lumen. Sua missão é avaliar debates acadêmicos ocorridos no chat durante sessões Pomodoro em grupo.
 
           Sua tarefa é cruzar a <questao_alvo> com o <historico_chat> e determinar rigorosamente quais estudantes acertaram ou erraram a resposta.
 
@@ -137,9 +152,11 @@ async ask(temas: string[]): Promise<AskDto> {
           </questao_alvo>
 
           <historico_chat>
-          ${messages.map(m => `${m.username} - ${m.userId}: ${m.text}`).join('\n')}
-          </historico_chat>`}]
-      }
+          ${messages.map((m) => `${m.username} - ${m.userId}: ${m.text}`).join('\n')}
+          </historico_chat>`,
+          },
+        ],
+      };
 
       const response = await this.ai.models.generateContent({
         model: 'gemini-3.5-flash',
@@ -158,12 +175,87 @@ async ask(temas: string[]): Promise<AskDto> {
 
       const data = JSON.parse(response.text);
       return Object.assign(new ValidateResponseDto(), data);
-
     } catch (e) {
-        console.error('Error validating responses:', e);
-        throw new Error('Failed to validate responses');
+      console.error('Error validating responses:', e);
+      throw new Error('Failed to validate responses');
     }
   }
 
-}
+  async generateRecommendation(
+    tasks: AgendaEvent[],
+  ): Promise<{ title: string; subtitle: string }> {
+    if (!tasks || tasks.length === 0) {
+      return {
+        title: 'Sem compromissos próximos',
+        subtitle: 'Aproveite para revisar seus conteúdos ou descansar!',
+      };
+    }
 
+    const formattedEvented = tasks.map((task) => {
+      const diffInMs = task.eventDate.getTime() - new Date().getTime();
+      const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
+      return `${task.title} - ${task.description || 'Sem descrição'} (em ${diffInDays} dias)`;
+    });
+
+    try {
+      const config = {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ['title', 'subtitle'],
+          properties: {
+            title: {
+              type: Type.STRING,
+              description:
+                'O título curto da matéria ou compromisso analisado.',
+            },
+            subtitle: {
+              type: Type.STRING,
+              description:
+                'Frase motivacional curta seguindo o padrão exato: "Sua prova é em X dias. Dedique Y horas hoje."',
+            },
+          },
+        },
+        systemInstruction: [
+          {
+            text: `Você atua como 'Luminha', a assistente de estudos inteligente do app Lumen.
+            Sua tarefa é analisar os compromissos mais próximos da agenda do estudante e criar uma recomendação de tempo de estudo para HOJE.
+            
+            DIRETRIZES:
+            1. Seja extremamente direta e use tom encorajador.
+            2. Estipule uma meta de dedicação para hoje entre 1 a 4 horas com base nos dias restantes (quanto menos dias, mais horas).
+            3. O subtítulo deve seguir fielmente o formato: 'Sua prova é em Y dias. Dedique X horas hoje.' (ajuste o termo se for "Trabalho", "Entrega" ou "Pesquisa" com base no título).`,
+          },
+        ],
+      };
+
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        config,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: `Gere a recomendação para os compromissos: ${formattedEvented.join(', ')}.`,
+              },
+            ],
+          },
+        ],
+      });
+
+      if (!response.text) {
+        throw new Error('A resposta da IA veio vazia.');
+      }
+
+      return JSON.parse(response.text);
+    } catch (e) {
+      console.error('Error generating recommendation:', e);
+
+      return {
+        title: 'Sem compromissos próximos',
+        subtitle: 'Aproveite para revisar seus conteúdos ou descansar!',
+      };
+    }
+  }
+}
