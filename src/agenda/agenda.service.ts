@@ -14,7 +14,7 @@ export class AgendaService {
   async create(dto: CreateAgendaDto, userId: string): Promise<AgendaEvent> {
     const event = this.agendaRepo.create({
       ...dto,
-      user: { id: userId } as any,
+      user: { id: userId },
     });
     return this.agendaRepo.save(event);
   }

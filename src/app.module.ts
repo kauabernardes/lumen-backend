@@ -25,6 +25,7 @@ import { RewardModule } from './reward/reward.module';
 import { UserReward } from './schema/user-reward.entity';
 import { RecommendationModule } from './recommendation/recommedation.module';
 import { AgendaModule } from './agenda/agenda.module';
+import { AgendaEvent } from './schema/agenda.enity';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AgendaModule } from './agenda/agenda.module';
           Reward,
           UserReward,
           DailyLog,
+          AgendaEvent,
         ],
         logging: true,
         synchronize: false,
@@ -68,7 +70,7 @@ import { AgendaModule } from './agenda/agenda.module';
     AiModule,
     RewardModule,
     RecommendationModule,
-    AgendaModule
+    AgendaModule,
   ],
   controllers: [AppController],
   providers: [AppService],
