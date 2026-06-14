@@ -244,11 +244,14 @@ export class CommunityService {
     pagination: PaginationDto,
     userId: string | null = null,
   ) {
+    const normalizedUserId = userId === 'null' ? null : userId;
+    // --------------------------
+
     const page = Number(pagination.page) || 1;
     const limit = Number(pagination.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const targetUserId = userId || reqUser;
+    const targetUserId = normalizedUserId || reqUser;
 
     const queryBuilder = this.communityRepository
       .createQueryBuilder('community')
