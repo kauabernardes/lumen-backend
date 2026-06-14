@@ -188,6 +188,8 @@ export class AuthService {
       );
     }
 
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
     user.password = await bcrypt.hash(dto.newPassword, 12);
 
     await this.userRepository.save(user);
