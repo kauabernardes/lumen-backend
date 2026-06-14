@@ -1,6 +1,15 @@
-import { Controller, Delete, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AgendaService } from './agenda.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { CreateAgendaDto } from './dto/create-agenda.dto';
 
 @Controller('agenda')
 export class AgendaController {
@@ -14,8 +23,8 @@ export class AgendaController {
 
   @Post()
   @UseGuards(AuthGuard)
-  async createAgenda(@Req() req) {
-    return await this.agendaService.create(req.body, req.user.sub);
+  async createAgenda(@Req() req, @Body() body: CreateAgendaDto) {
+    return await this.agendaService.create(body, req.user.sub);
   }
 
   @Delete(':id')
