@@ -9,7 +9,7 @@ import { User } from 'src/schema/user.entity';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
-import { MailerService } from '@nestjs-modules/mailer'; 
+import { MailerService } from '@nestjs-modules/mailer';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
@@ -20,7 +20,7 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly mailerService: MailerService, 
+    private readonly mailerService: MailerService,
   ) {}
 
   async register(data: any) {
@@ -103,7 +103,9 @@ export class AuthService {
       {
         sub: user!.id,
         username: user!.username,
-        profileImage: user!.profileImage ? `uploads/${user!.profileImage}` : null,
+        profileImage: user!.profileImage
+          ? `uploads/${user!.profileImage}`
+          : null,
       },
       'segredo',
       { expiresIn: '1h' },
@@ -115,16 +117,23 @@ export class AuthService {
         id: user!.id,
         email: user!.email,
         username: user!.username,
-        profileImage: user!.profileImage ? `uploads/${user!.profileImage}` : null,
+        profileImage: user!.profileImage
+          ? `uploads/${user!.profileImage}`
+          : null,
       },
     };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
-    const user = await this.userRepository.findOne({ where: { email: dto.email } });
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
 
     if (!user) {
-      return { message: 'Se o e-mail informado estiver cadastrado, um código de recuperação será enviado.' };
+      return {
+        message:
+          'Se o e-mail informado estiver cadastrado, um código de recuperação será enviado.',
+      };
     }
 
     const token = crypto.randomBytes(20).toString('hex');
@@ -158,7 +167,10 @@ export class AuthService {
       console.error('Falha ao enviar e-mail:', error);
     }
 
-    return { message: 'Se o e-mail informado estiver cadastrado, um código de recuperação será enviado.' };
+    return {
+      message:
+        'Se o e-mail informado estiver cadastrado, um código de recuperação será enviado.',
+    };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
@@ -166,13 +178,17 @@ export class AuthService {
       where: { resetPasswordToken: dto.token },
     });
 
-    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires < new Date()) {
-      throw new BadRequestException('O token de recuperação é inválido ou expirou.');
+    if (
+      !user ||
+      !user.resetPasswordExpires ||
+      user.resetPasswordExpires < new Date()
+    ) {
+      throw new BadRequestException(
+        'O token de recuperação é inválido ou expirou.',
+      );
     }
 
     user.password = await bcrypt.hash(dto.newPassword, 12);
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
 
     await this.userRepository.save(user);
 

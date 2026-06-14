@@ -1,16 +1,14 @@
 import { Controller, Get, UseGuards, Req } from '@nestjs/common';
 import { RewardService } from './reward.service';
-import { AuthGuard } from 'src/auth/guards/auth.guard'; 
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('rewards')
-@UseGuards(AuthGuard) 
+@UseGuards(AuthGuard)
 export class RewardController {
   constructor(private readonly rewardService: RewardService) {}
 
- 
   @Get()
   async getMyRewards(@Req() req) {
-   
-    return this.rewardService.getUserRewards(req.user.id);
+    return this.rewardService.getUserRewards(req.user.sub);
   }
 }

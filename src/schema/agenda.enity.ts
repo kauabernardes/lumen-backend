@@ -1,9 +1,11 @@
-import { Entity, 
-    PrimaryGeneratedColumn, 
-    Column, 
-    ManyToOne, 
-    CreateDateColumn } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+} from 'typeorm';
+import { User } from './user.entity';
 
 @Entity('agenda_events')
 export class AgendaEvent {

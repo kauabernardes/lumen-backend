@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import { AgendaEvent } from 'src/schema/agenda.entity';
+
 import { AiService } from 'src/ai/ai.service';
+import { AgendaEvent } from 'src/schema/agenda.enity';
 
 @Injectable()
 export class RecommendationService {
@@ -15,7 +16,7 @@ export class RecommendationService {
   async getHomeRecommendation(userId: string) {
     const now = new Date();
 
-    const nextEvent = await this.agendaRepo.findOne({
+    const nextEvents = await this.agendaRepo.find({
       where: {
         user: { id: userId },
         eventDate: MoreThanOrEqual(now),
@@ -23,21 +24,14 @@ export class RecommendationService {
       order: { eventDate: 'ASC' },
     });
 
-    if (!nextEvent) return null;
+    if (!nextEvents || nextEvents.length === 0) return null;
 
-    const diffInMs = nextEvent.eventDate.getTime() - now.getTime();
-    const diffInDays = Math.ceil(diffInMs / (1000 * 60 * 60 * 24));
-
-    const aiOutput = await this.aiService.generateRecommendation(
-      nextEvent.title,
-      nextEvent.description,
-      diffInDays,
-    );
+    const aiOutput = await this.aiService.generateRecommendation(nextEvents);
 
     return {
       type: 'Recomendação',
       title: aiOutput.title,
-      subtitle: aiOutput.subtitle, 
+      subtitle: aiOutput.subtitle,
       action: 'Começar agora',
     };
   }

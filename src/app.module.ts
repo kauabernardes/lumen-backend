@@ -24,6 +24,7 @@ import { AiModule } from './ai/ai.module';
 import { RewardModule } from './reward/reward.module';
 import { UserReward } from './schema/user-reward.entity';
 import { RecommendationModule } from './recommendation/recommedation.module';
+import { AgendaModule } from './agenda/agenda.module';
 
 @Module({
   imports: [
@@ -66,7 +67,8 @@ import { RecommendationModule } from './recommendation/recommedation.module';
     DailyLogModule,
     AiModule,
     RewardModule,
-    RecommendationModule
+    RecommendationModule,
+    AgendaModule
   ],
   controllers: [AppController],
   providers: [AppService],

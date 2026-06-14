@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { RecommendationController } from './recommendation.controller';
-import { RecommendationService } from './recommendation.service';
-import { AgendaEvent } from 'src/schema/agenda.entity'; 
-import { AiService } from 'src/ai/ai.module'; 
+import { AiModule } from 'src/ai/ai.module';
+import { AgendaEvent } from 'src/schema/agenda.enity';
+import { RecommendationController } from './recommedation.controller';
+import { RecommendationService } from './recommedation.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([AgendaEvent]),
-    AiModule 
-  ],
+  imports: [TypeOrmModule.forFeature([AgendaEvent]), AiModule],
   controllers: [RecommendationController],
   providers: [RecommendationService],
 })

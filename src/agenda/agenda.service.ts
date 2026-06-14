@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
-import { AgendaEvent } from './schema/agenda.entity';
 import { CreateAgendaDto } from './dto/create-agenda.dto';
+import { AgendaEvent } from 'src/schema/agenda.enity';
 
 @Injectable()
 export class AgendaService {
@@ -12,7 +12,10 @@ export class AgendaService {
   ) {}
 
   async create(dto: CreateAgendaDto, userId: string): Promise<AgendaEvent> {
-    const event = this.agendaRepo.create({ ...dto, user: { id: userId } as any });
+    const event = this.agendaRepo.create({
+      ...dto,
+      user: { id: userId } as any,
+    });
     return this.agendaRepo.save(event);
   }
 
@@ -24,7 +27,9 @@ export class AgendaService {
   }
 
   async remove(id: string, userId: string): Promise<void> {
-    const event = await this.agendaRepo.findOne({ where: { id, user: { id: userId } } });
+    const event = await this.agendaRepo.findOne({
+      where: { id, user: { id: userId } },
+    });
     if (!event) throw new NotFoundException('Compromisso não encontrado.');
     await this.agendaRepo.remove(event);
   }
