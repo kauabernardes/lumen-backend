@@ -87,7 +87,7 @@ export class SessionService {
           cycle: 0,
         },
         messages: [],
-        ai: { lastAsk: null },
+        ai: { lastAsk: null, isGenerating: false },
       });
 
       try {
@@ -412,6 +412,10 @@ export class SessionService {
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) return;
 
+    if (sessionState.ai.isGenerating) {
+      return;
+    }
+
     if (!sessionState.themes || sessionState.themes.length === 0) {
       const message: SessionMessage = {
         id: v7(),
@@ -428,12 +432,19 @@ export class SessionService {
       return;
     }
 
+    sessionState.ai.isGenerating = true;
     this.wsServer.to(sessionId).emit('ai_generating');
-    const ask = await this.aiService.ask(sessionState.themes || []);
-    this.wsServer.to(sessionId).emit('ai_generated');
 
-    sessionState.ai.lastAsk = ask;
-    this.broadcastAiAsk(sessionId);
+    try {
+      const ask = await this.aiService.ask(sessionState.themes || []);
+      sessionState.ai.lastAsk = ask;
+      this.broadcastAiAsk(sessionId);
+    } catch (error) {
+      console.error('Erro ao gerar questão da IA:', error);
+    } finally {
+      sessionState.ai.isGenerating = false;
+      this.wsServer.to(sessionId).emit('ai_generated');
+    }
   }
 
   private broadcastAiAsk(sessionId: string) {
@@ -468,47 +479,63 @@ export class SessionService {
   }
 
   async validate(sessionId: string) {
-    this.wsServer.to(sessionId).emit('ai_generating');
-
     const sessionState = this.activeSessions.get(sessionId);
     if (!sessionState) {
       throw new NotFoundException('Sessão não encontrada');
+    }
+
+    if (sessionState.ai.isGenerating) {
+      throw new ForbiddenException('Aguarde a IA concluir a operação atual.');
     }
 
     if (!sessionState.ai.lastAsk) {
       throw new NotFoundException('Nenhuma questão gerada para validar');
     }
 
-    const messages = sessionState.messages.filter((m) => !m.isAi);
-    const validation = await this.aiService.validate(
-      sessionState.ai.lastAsk,
-      messages,
-    );
+    sessionState.ai.isGenerating = true;
+    this.wsServer.to(sessionId).emit('ai_generating');
 
-    const { difficulty, title } = sessionState.ai.lastAsk;
+    try {
+      const messages = sessionState.messages.filter((m) => !m.isAi);
+      const validation = await this.aiService.validate(
+        sessionState.ai.lastAsk,
+        messages,
+      );
 
-    const getRewards = await this.rewardService.getRewardByAnswerIaValidate(
-      validation.answerBy,
-      difficulty,
-      title,
-    );
-    this.wsServer.to(sessionId).emit('ai_generated');
+      const { difficulty, title } = sessionState.ai.lastAsk;
 
-    sessionState.ai.lastAsk = null;
+      const getRewards = await this.rewardService.getRewardByAnswerIaValidate(
+        validation.answerBy,
+        difficulty,
+        title,
+      );
 
-    this.wsServer.to(sessionId).emit('validation_result', validation);
-    const message: SessionMessage = {
-      id: v7(),
-      userId: 'ai',
-      username: 'Luminha',
-      text: 'Já vou fazer uma nova pergunta de acordo com os temas que você tem estudado nessa sessão!',
-      isAi: true,
-      timestamp: new Date().toISOString(),
-    };
+      sessionState.ai.lastAsk = null;
 
-    this.genAiQuestion(sessionId);
+      this.wsServer.to(sessionId).emit('validation_result', validation);
 
-    this.wsServer.to(sessionId).emit('receive_message', message);
-    console.log('Validation result:', validation);
+      const message: SessionMessage = {
+        id: v7(),
+        userId: 'ai',
+        username: 'Luminha',
+        text: 'Já vou fazer uma nova pergunta de acordo com os temas que você tem estudado nessa sessão!',
+        isAi: true,
+        timestamp: new Date().toISOString(),
+      };
+
+      this.wsServer.to(sessionId).emit('receive_message', message);
+      console.log('Validation result:', validation);
+
+      sessionState.ai.isGenerating = false;
+      this.wsServer.to(sessionId).emit('ai_generated');
+
+      this.genAiQuestion(sessionId);
+    } catch (error) {
+      console.error('Erro durante a validação da IA:', error);
+
+      sessionState.ai.isGenerating = false;
+      this.wsServer.to(sessionId).emit('ai_generated');
+      throw error;
+    }
   }
 }

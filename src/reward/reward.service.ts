@@ -41,15 +41,23 @@ export class RewardService {
 
   async getUserRewards(userId: string) {
     const allRewards = await this.dataSource.getRepository(Reward).find({
-      where: { userRewards: { user: { id: userId }, isCorrect: true } },
+      where: { userRewards: { user: { id: userId } } },
       relations: ['userRewards'],
     });
+
+    const correctRewards = await this.dataSource
+      .getRepository(UserReward)
+      .find({
+        where: { user: { id: userId }, isCorrect: true },
+        relations: ['reward'],
+      });
 
     return allRewards.map((reward) => ({
       rewardId: reward.id,
       title: reward.title,
       difficulty: reward.difficulty,
       createdAt: reward.createdAt,
+      isCorrect: correctRewards.some((ur) => ur.reward.id === reward.id),
     }));
   }
 }
