@@ -66,7 +66,7 @@ export class AiService {
       };
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-3.1-flash-lite',
         config,
         contents: [
           {
@@ -159,7 +159,7 @@ export class AiService {
       };
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-3.1-flash-lite',
         config,
         contents: [
           {
@@ -230,7 +230,7 @@ export class AiService {
       };
 
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.5-flash',
+        model: 'gemini-3.1-flash-lite',
         config,
         contents: [
           {
