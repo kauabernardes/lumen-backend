@@ -185,10 +185,13 @@ export class PostService {
       userId: sub,
       communityId: post.communityId,
       parentId: postId,
-      user: { username: user.username, profileImage: user.profileImage },
+      user: sub,
     });
     await this.postRepository.save(comment);
-    return comment;
+    return {
+      ...comment,
+      user: { username: user.username, profileImage: user.profileImage },
+    };
   }
 
   async getRecommendedPosts(
