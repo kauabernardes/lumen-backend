@@ -6,6 +6,13 @@ import { DailyLog } from '../schema/daily-log.entity';
 import { CreateDailyLogDto } from './dto/create-daily-log.dto';
 import { ParticipantSession } from 'src/schema/participant-session.entity';
 
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 @Injectable()
 export class DailyLogService {
   constructor(
@@ -16,22 +23,10 @@ export class DailyLogService {
   ) {}
 
   async create(dto: CreateDailyLogDto, userId: string) {
-    const today = new Date();
+    const now = dayjs().tz('America/Sao_Paulo');
 
-    const startOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    );
-    const endOfDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
+    const startOfDay = now.startOf('day').toDate();
+    const endOfDay = now.endOf('day').toDate();
 
     const existingLog = await this.dailyLogRepository.findOne({
       where: {
@@ -53,78 +48,60 @@ export class DailyLogService {
   }
 
   async getSummary(userId: string) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = dayjs().tz('America/Sao_Paulo');
 
-    // Função auxiliar blindada contra fuso horário (zera a hora e retorna os milissegundos)
-    const normalizeDate = (date: Date | string) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    };
-
-    const todayTime = normalizeDate(today);
-
-    // --- DEFINIÇÃO DOS LIMITES DA SEMANA ---
-    const dayOfWeek = today.getDay();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - dayOfWeek);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    const startOfWeek = now.startOf('week').toDate();
+    const endOfWeek = now.endOf('week').toDate();
 
     const allLogs = await this.dailyLogRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
     });
 
-    // --- CÁLCULO DA OFENSIVA (STREAK) ---
-    let streak = 0;
-    let currentDateToCheck = new Date(today);
-    let currentTargetTime = todayTime;
+    const getDateString = (date: Date | string) =>
+      dayjs(date).tz('America/Sao_Paulo').format('YYYY-MM-DD');
 
-    // Verifica se tem log hoje sem usar toISOString
+    const todayString = getDateString(now.toDate());
+
+    let streak = 0;
+    let currentDateToCheck = now;
+    let currentTargetString = todayString;
+
     const hasLogToday = allLogs.some(
-      (log) => normalizeDate(log.createdAt) === todayTime,
+      (log) => getDateString(log.createdAt) === todayString,
     );
 
     if (!hasLogToday) {
-      currentDateToCheck.setDate(currentDateToCheck.getDate() - 1);
-      currentTargetTime = normalizeDate(currentDateToCheck);
+      currentDateToCheck = currentDateToCheck.subtract(1, 'day');
+      currentTargetString = getDateString(currentDateToCheck.toDate());
     }
 
     for (const log of allLogs) {
-      const logTime = normalizeDate(log.createdAt);
+      const logString = getDateString(log.createdAt);
 
-      if (logTime === currentTargetTime) {
+      if (logString === currentTargetString) {
         streak++;
-        // Volta um dia para o próximo alvo
-        currentDateToCheck.setDate(currentDateToCheck.getDate() - 1);
-        currentTargetTime = normalizeDate(currentDateToCheck);
-      } else if (logTime > currentTargetTime) {
-        continue; // Pula múltiplos logs no mesmo dia
+        currentDateToCheck = currentDateToCheck.subtract(1, 'day');
+        currentTargetString = getDateString(currentDateToCheck.toDate());
+      } else if (logString > currentTargetString) {
+        continue;
       } else {
-        break; // A sequência quebrou
+        break;
       }
     }
 
-    // --- CÁLCULO DA SEMANA ATUAL ---
     const weeklyStatus: boolean[] = [];
     for (let i = 0; i < 7; i++) {
-      const checkDate = new Date(startOfWeek);
-      checkDate.setDate(startOfWeek.getDate() + i);
-      const checkTime = normalizeDate(checkDate);
+      const checkDateString = dayjs(startOfWeek)
+        .add(i, 'day')
+        .format('YYYY-MM-DD');
 
-      // Compara os milissegundos ao invés de strings
       const hasLog = allLogs.some(
-        (log) => normalizeDate(log.createdAt) === checkTime,
+        (log) => getDateString(log.createdAt) === checkDateString,
       );
       weeklyStatus.push(hasLog);
     }
 
-    // --- ESTATÍSTICAS GERAIS ---
     const logsThisWeek = allLogs.filter((log) => {
       const logDate = new Date(log.createdAt);
       return logDate >= startOfWeek && logDate <= endOfWeek;

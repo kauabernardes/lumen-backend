@@ -10,10 +10,12 @@ import * as path from 'path';
 
 import { InjectRepository } from '@nestjs/typeorm';
 
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { User } from 'src/schema/user.entity';
 import { ParticipantSession } from 'src/schema/participant-session.entity';
+import { Post } from 'src/schema/post.entity';
+import { DailyLog } from 'src/schema/daily-log.entity';
 
 @Injectable()
 export class UserService {
@@ -23,6 +25,12 @@ export class UserService {
 
     @InjectRepository(ParticipantSession)
     private readonly participantSessionRepository: Repository<ParticipantSession>,
+
+    @InjectRepository(Post)
+    private readonly postRepository: Repository<Post>,
+
+    @InjectRepository(DailyLog)
+    private readonly dailyLogRepository: Repository<DailyLog>,
   ) {}
 
   async findById(id: string) {
@@ -142,6 +150,50 @@ export class UserService {
       },
     });
 
+    const postsCount = await this.postRepository.count({
+      where: { user: { id: profileUserId } },
+    });
+    const today = new Date();
+    const normalizeDate = (date: Date | string) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+
+    const todayTime = normalizeDate(today);
+
+    const allLogs = await this.dailyLogRepository.find({
+      where: { userId: profileUserId },
+      order: { createdAt: 'DESC' },
+    });
+
+    let streak = 0;
+    let currentDateToCheck = new Date(today);
+    let currentTargetTime = todayTime;
+
+    const hasLogToday = allLogs.some(
+      (log) => normalizeDate(log.createdAt) === todayTime,
+    );
+
+    if (!hasLogToday) {
+      currentDateToCheck.setDate(currentDateToCheck.getDate() - 1);
+      currentTargetTime = normalizeDate(currentDateToCheck);
+    }
+
+    for (const log of allLogs) {
+      const logTime = normalizeDate(log.createdAt);
+
+      if (logTime === currentTargetTime) {
+        streak++;
+
+        currentDateToCheck.setDate(currentDateToCheck.getDate() - 1);
+        currentTargetTime = normalizeDate(currentDateToCheck);
+      } else if (logTime > currentTargetTime) {
+        continue;
+      } else {
+        break;
+      }
+    }
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');
     }
@@ -150,6 +202,8 @@ export class UserService {
       username: user.username,
       email: user.email,
       imgProfile: user.profileImage ? `uploads/${user.profileImage}` : null,
+      postsCount: postsCount,
+      streak: streak,
     };
   }
 
