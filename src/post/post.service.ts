@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { CreatePostDto } from './dto/create-post.dto';
 import { Post } from 'src/schema/post.entity';
 import { Community } from 'src/schema/community.entity';
@@ -13,6 +13,7 @@ import { Like } from 'src/schema/like.entity';
 import { CreateComment } from './dto/create-comment.dto';
 import { PaginationDto } from 'src/util/dto/pagination.dto';
 import { PaginatedPostsResponseDto } from './dto/post-response.dto';
+import { User } from 'src/schema/user.entity';
 
 @Injectable()
 export class PostService {
@@ -25,6 +26,8 @@ export class PostService {
     private readonly memberRepository: Repository<Member>,
     @InjectRepository(Like)
     private readonly likeRepository: Repository<Like>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -169,11 +172,20 @@ export class PostService {
       throw new NotFoundException('Post não encontrado');
     }
 
+    const user = await this.userRepository.findOne({
+      where: { id: sub },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
     const comment = this.postRepository.create({
       content: content,
       userId: sub,
       communityId: post.communityId,
       parentId: postId,
+      user: { username: user.username, profileImage: user.profileImage },
     });
     await this.postRepository.save(comment);
     return comment;
